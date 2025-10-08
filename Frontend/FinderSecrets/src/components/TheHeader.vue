@@ -1,17 +1,22 @@
 <template>
   <el-header class="main-header">
-    <el-button size="large" type="info" plain  round>Var 1</el-button>
-    <el-button size="large" type="info" plain  round>Var 2</el-button>
+    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt"> Var 1</el-button></RouterLink>
+    <RouterLink to="/about"> <el-button size="large" type="info" plain  round class="bt">Var 2</el-button></RouterLink>
   </el-header>
 </template>
 
 <script setup>
-
+import { RouterLink} from 'vue-router'
 
 
 </script>
 
 <style scoped>
+
+.bt{
+    margin-left: 2%;
+    margin-right: 2%;
+}
 
 .main-header {
   height: 100px;

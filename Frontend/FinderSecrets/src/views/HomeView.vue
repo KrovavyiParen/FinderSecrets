@@ -44,11 +44,13 @@
   </main>
 </template>
 
+<!------------------------------------------------------------------------------------------------------------->
+
 <script setup>
   import { ref, computed  } from 'vue'
   const textarea = ref('')
   const tokens = ref([])
-const checked = ref(false)
+  const checked = ref(false)
 
 const validCount = computed(() => tokens.value.filter(t => t.valid).length)
 const invalidCount = computed(() => tokens.value.filter(t => !t.valid).length)
@@ -98,6 +100,9 @@ const clearAll = () => {
 }
 
 </script>
+
+<!------------------------------------------------------------------------------------------------------------->
+
 
 <style scoped>
 
