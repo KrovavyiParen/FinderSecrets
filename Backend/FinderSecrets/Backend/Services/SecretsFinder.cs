@@ -4,18 +4,24 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Backend
+namespace Backend.Services
 {
-    public class SecretsFinder
+    public interface ISecretsFinder
+    {
+        List<SecretMatch> FindSecrets(string input);
+    }
+    public class SecretsFinder : ISecretsFinder
     {
         private readonly List<Pattern> _patterns;
+        private readonly ILogger<SecretsFinder> _logger;
 
-        public SecretsFinder()
+        public SecretsFinder(ILogger<SecretsFinder> logger)
         {
+            _logger = logger;
             _patterns = new List<Pattern>
             {
-            new("API-Key", @"\b[a-zA-Z0-9]{32,45}\b"),
-            new("Telegram-Token", @"\d{8,10}:[\w_-]{35}")
+                new("API-Key", @"\b[a-zA-Z0-9]{32,45}\b"),
+                new("Telegram-Token", @"\d{8,10}:[\w_-]{35}")
             };
         }
 

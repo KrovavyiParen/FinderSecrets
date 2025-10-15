@@ -1,0 +1,10 @@
+**/.dockerignore
+**/.git
+**/.gitignore
+**/bin
+**/obj
+**/Dockerfile*
+**/node_modules
+**/Thumbs.db
+**/.vs
+**/.vscode
