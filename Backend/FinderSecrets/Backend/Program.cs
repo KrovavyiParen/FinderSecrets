@@ -8,9 +8,7 @@ namespace Backend
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             builder.Services.AddCors(options =>
@@ -36,19 +34,14 @@ namespace Backend
 
             app.UseHttpsRedirection();
             app.UseCors("FrontendPolicy");
-
             app.UseAuthorization();
+            
             app.MapControllers();
+            
+            // Добавляем endpoint'ы ПОСЛЕ MapControllers
             app.MapGet("/", () => "FinderSecrets API is running!");
             app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" });
             app.MapGet("/api/health", () => "Healthy");
-
-            // Включим Swagger для Development
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
 
             app.Run();
         }
