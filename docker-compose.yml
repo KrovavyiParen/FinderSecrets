@@ -10,3 +10,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
     container_name: secrets-finder-app
     restart: unless-stopped
+
+  secrets-finder-frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    container_name: secrets-finder-frontend
+    restart: unless-stopped
+    depends_on:
+      - secrets-finder-backend

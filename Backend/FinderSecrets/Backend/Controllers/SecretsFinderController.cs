@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Backend.Services;
 using System.ComponentModel.DataAnnotations;
+using Backend.DTO;
 using static Backend.Models.Model;
 
 namespace Backend.Controllers
@@ -21,16 +22,16 @@ namespace Backend.Controllers
         }
 
         [HttpPost("scan-text")]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ScanResult>> ScanText([FromBody] ScanTextRequest request)
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScanResultDto>> ScanText([FromBody] ScanTextRequestDto request)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(request.Text))
                 {
-                    return BadRequest(new ScanResult
+                    return BadRequest(new ScanResultDto
                     {
                         Error = "Text is required",
                         FileName = "text-input"
@@ -39,10 +40,10 @@ namespace Backend.Controllers
 
                 var secrets = _secretsFinder.FindSecrets(request.Text);
 
-                return Ok(new ScanResult
+                return Ok(new ScanResultDto
                 {
                     FileName = "text-input",
-                    Secrets = secrets.Select(s => new SecretResponse
+                    Secrets = secrets.Select(s => new SecretResponseDto
                     {
                         Type = s.Type,
                         Value = s.Value,
@@ -54,7 +55,7 @@ namespace Backend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error scanning text");
-                return StatusCode(500, new ScanResult
+                return StatusCode(500, new ScanResultDto
                 {
                     Error = ex.Message,
                     FileName = "text-input"
@@ -64,17 +65,17 @@ namespace Backend.Controllers
 
         [HttpPost("scan-file")]
         [RequestSizeLimit(5_242_880)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status413PayloadTooLarge)]
-        [ProducesResponseType(typeof(ScanResult), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ScanResult>> ScanFile(IFormFile file)
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status413PayloadTooLarge)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScanResultDto>> ScanFile(IFormFile file)
         {
             try
             {
                 if (file == null || file.Length == 0)
                 {
-                    return BadRequest(new ScanResult
+                    return BadRequest(new ScanResultDto
                     {
                         Error = "File is required",
                         FileName = "unknown"
@@ -82,7 +83,7 @@ namespace Backend.Controllers
                 }
                 if (file.Length > 5_242_880) // 5MB
                 {
-                    return StatusCode(413, new ScanResult
+                    return StatusCode(413, new ScanResultDto
                     {
                         Error = "File size cannot exceed 5MB",
                         FileName = file.FileName
@@ -93,10 +94,10 @@ namespace Backend.Controllers
                 var content = await stream.ReadToEndAsync();
                 var secrets = _secretsFinder.FindSecrets(content);
 
-                return Ok(new ScanResult
+                return Ok(new ScanResultDto
                 {
                     FileName = file.FileName,
-                    Secrets = secrets.Select(s => new SecretResponse
+                    Secrets = secrets.Select(s => new SecretResponseDto
                     {
                         Type = s.Type,
                         Value = s.Value,
@@ -108,7 +109,7 @@ namespace Backend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error scanning file: {FileName}", file?.FileName);
-                return StatusCode(500, new ScanResult
+                return StatusCode(500, new ScanResultDto
                 {
                     Error = ex.Message,
                     FileName = file?.FileName ?? "unknown"
@@ -116,10 +117,10 @@ namespace Backend.Controllers
             }
         }
         [HttpGet("supported-types")]
-        [ProducesResponseType(typeof(SupportedTypesResponse), StatusCodes.Status200OK)]
-        public ActionResult<SupportedTypesResponse> GetSupportedSecretTypes()
+        [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
+        public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
         {
-            var supportedTypes = new List<SecretTypeInfo>
+            var supportedTypes = new List<SecretTypeInfoDto>
             {
                 new() { Type = "API_KEY", Description = "API ключи и токены", Examples = new[] { "AKIAIOSFODNN7EXAMPLE", "sk_live_123456789" } },
                 new() { Type = "PASSWORD", Description = "Пароли и учетные данные", Examples = new[] { "password123", "secret" } },
@@ -128,7 +129,7 @@ namespace Backend.Controllers
                 new() { Type = "CRYPTO_WALLET", Description = "Криптокошельки и seed фразы", Examples = new[] { "0x742d35Cc6634C0532925a3b8D" } }
             };
 
-            return Ok(new SupportedTypesResponse
+            return Ok(new SupportedTypesResponseDto
             {
                 Success = true,
                 SupportedTypes = supportedTypes,
@@ -136,10 +137,10 @@ namespace Backend.Controllers
             });
         }
         [HttpGet("health")]
-        [ProducesResponseType(typeof(HealthCheckResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(HealthCheckDto), StatusCodes.Status200OK)]
         public ActionResult<HealthCheckResponse> HealthCheck()
         {
-            return Ok(new HealthCheckResponse
+            return Ok(new HealthCheckDto
             {
                 Status = "Healthy",
                 Timestamp = DateTime.UtcNow,
