@@ -1,5 +1,3 @@
-
-
 <template>
   <main>
     <el-input
@@ -52,52 +50,6 @@
   const tokens = ref([])
   const checked = ref(false)
 
-const validCount = computed(() => tokens.value.filter(t => t.valid).length)
-const invalidCount = computed(() => tokens.value.filter(t => !t.valid).length)
-
-const checkTokens = () => {
-  checked.value = true
-  
-  // Регулярное выражение для поиска Telegram токенов
-  const tokenRegex = /(\d{8,10}:[\w_-]{35})/g
-  const matches = textarea.value.match(tokenRegex) || []
-  
-  tokens.value = matches.map(token => {
-    const [botId, secret] = token.split(':')
-    const valid = validateToken(token)
-    
-    return {
-      token,
-      botId,
-      secret,
-      valid
-    }
-  })
-}
-
-const validateToken = (token) => {
-  const parts = token.split(':')
-  
-  if (parts.length !== 2) {
-    return false
-  }
-  
-  const [botId, secret] = parts
-  
-  // Проверка Bot ID (только цифры, 8-10 символов)
-  const isBotIdValid = /^\d{8,10}$/.test(botId)
-  
-  // Проверка Secret (35 символов: буквы, цифры, _, -)
-  const isSecretValid = /^[\w_-]{35}$/.test(secret)
-  
-  return isBotIdValid && isSecretValid
-}
-
-const clearAll = () => {
-  textarea.value = ''
-  tokens.value = []
-  checked.value = false
-}
 
 </script>
 
