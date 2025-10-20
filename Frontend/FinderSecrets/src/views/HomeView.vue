@@ -36,11 +36,11 @@ const sendText = async () => {
   result.value = ''
 
   try {
-    const response = await axios.post('http://localhost:5200/api/SecretsFinder/scan-text', {
+    const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-text', {
       text: textarea.value
     })
     
-    result.value = response.data.processedText || response.data.message
+    result.value = JSON.stringify(response.data, null, 2)
     
   } catch (error) {
     result.value = 'Ошибка: ' + (error.response?.data?.message || error.message)
