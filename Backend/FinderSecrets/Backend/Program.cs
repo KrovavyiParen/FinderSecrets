@@ -1,3 +1,4 @@
+using Backend.Controllers;
 using Backend.Services;
 namespace Backend
 {
@@ -39,9 +40,10 @@ namespace Backend
             app.MapControllers();
             
             // Добавляем endpoint'ы ПОСЛЕ MapControllers
-            app.MapGet("/", () => "FinderSecrets API is running!");
+            app.MapGet("/", () => "FinderSecrets API is running");
             app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" });
             app.MapGet("/api/health", () => "Healthy");
+
 
             app.Run();
         }

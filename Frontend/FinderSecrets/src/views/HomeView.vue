@@ -36,7 +36,7 @@ const sendText = async () => {
   result.value = ''
 
   try {
-    const response = await axios.post('http://localhost:5200/api/SecretsFinder', {
+    const response = await axios.post('http://localhost:5200/api/SecretsFinder/scan-text', {
       text: textarea.value
     })
     
