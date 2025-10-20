@@ -7,49 +7,50 @@
     class="in"
   />
   <div>
-    <el-button size="large" type="info" plain  round @click="checkTokens">click</el-button>
+    <el-button size="large" type="info" plain  round @click="sendText">          
+       'Отправить'
+    </el-button>
   </div>
-  <div v-if="tokens.length > 0" class="results-section">
-      <h3>📋 Найденные токены ({{ tokens.length }}):</h3>
+  <div v-if="result" class="results-section">
+      <h3>Результат:</h3>
       <div class="stats">
-        <span class="stat valid">Valid: {{ validCount }}</span>
-        <span class="stat invalid">Invalid: {{ invalidCount }}</span>
+        <span class="stat valid">{{ result }}</span>
       </div>
-      <div class="tokens-list">
-        <div 
-          v-for="(token, index) in tokens" 
-          :key="index"
-          :class="['token-item', token.valid ? 'valid' : 'invalid']"
-        >
-          <div class="token-content">
-            <span class="token-prefix">Bot ID:</span>
-            <span class="token-bot-id">{{ token.botId }}</span>
-            <span class="token-separator">:</span>
-            <span class="token-secret">{{ token.secret }}</span>
-          </div>
-          <span :class="['token-status', token.valid ? 'valid' : 'invalid']">
-            {{ token.valid ? '✅ VALID' : '❌ INVALID' }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div v-else-if="checked" class="no-results">
-      <p>🚫 Токены не найдены</p>
-    </div>
-
-    
+      
+      </div>    
   </main>
 </template>
 
 <!------------------------------------------------------------------------------------------------------------->
 
 <script setup>
-  import { ref, computed  } from 'vue'
+  import { ref} from 'vue'
+  import axios from '../../node_modules/axios/dist/axios.min.js'
+  
   const textarea = ref('')
-  const tokens = ref([])
-  const checked = ref(false)
+  const loading = ref(false)
+  const result = ref('')
+  
+const sendText = async () => {
+  loading.value = true
+  result.value = ''
 
+  try {
+    const response = await axios.post('http://localhost:5200/api/SecretsFinder', {
+      text: textarea.value
+    })
+    
+    result.value = response.data.processedText || response.data.message
+    
+  } catch (error) {
+    result.value = 'Ошибка: ' + (error.response?.data?.message || error.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+
+  
 
 </script>
 
