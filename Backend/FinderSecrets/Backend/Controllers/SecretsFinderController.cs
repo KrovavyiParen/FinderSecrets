@@ -46,7 +46,7 @@ namespace Backend.Controllers
                     Secrets = secrets.Select(s => new SecretResponseDto
                     {
                         Type = s.Type,
-                        Value = s.Value,
+                        Value = MaskSensitiveValue(s.Value),
                         LineNumber = s.LineNumber,
                         Position = s.Position
                     }).ToList()
