@@ -95,7 +95,7 @@ main {
   margin: 20px auto;
   padding: 20px;
   max-width: 1200px;
-  min-height: calc(100vh - 145px - 145px);
+  min-height: calc(100vh - 165px - 165px);
 }
 
 .results-section {
