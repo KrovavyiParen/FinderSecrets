@@ -69,6 +69,8 @@ namespace Backend.Controllers
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status413PayloadTooLarge)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
+
+        
         public async Task<ActionResult<ScanResultDto>> ScanFile(IFormFile file)
         {
             try
@@ -116,6 +118,68 @@ namespace Backend.Controllers
                 });
             }
         }
+
+
+        private string UrlValidate(string url)
+        {
+            Uri uri = new Uri(url);
+
+            if (uri.Host == "github.com")
+            {
+                return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
+            }
+            else if (uri.Host == "raw.githubusercontent.com")
+            { return url; }
+            else 
+            { throw new Exception("Not a github link"); }
+
+            
+        }
+        [HttpPost("scan-url")]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status413PayloadTooLarge)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
+
+        
+
+        public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] UrlRequest request)
+        {
+            string url = "";
+            try
+            {
+                
+                try {  url = UrlValidate(request.url); }
+                catch (Exception x)
+                {return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url });}
+                
+                var client = new HttpClient();
+                string content = await client.GetStringAsync(url);
+                var secrets = _secretsFinder.FindSecrets(content);
+
+                return Ok(new ScanResultDto
+                {
+                    Secrets = secrets.Select(s => new SecretResponseDto
+                    {
+                        Type = s.Type,
+                        Value = s.Value,
+                        LineNumber = s.LineNumber,
+                        Position = s.Position
+                    }).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scanning file: {url}", url);
+                return StatusCode(500, new ScanResultDto
+                {
+                    Error = ex.Message,
+                    FileName = url ?? "unknown"
+                });
+            }
+        }
+
+
         [HttpGet("supported-types")]
         [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
         public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
