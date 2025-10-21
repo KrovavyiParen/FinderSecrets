@@ -149,12 +149,14 @@ namespace Backend.Controllers
         }
         private string MaskSensitiveValue(string value)
         {
-            if (string.IsNullOrEmpty(value) || value.Length <= 8)
+            if (string.IsNullOrEmpty(value))
                 return "***MASKED***";
-
-            return value.Length > 16 
-                ? $"{value.Substring(0, 4)}...{value.Substring(value.Length - 4)}" 
-                : "***MASKED***";
+    
+             if (value.Length <= 50)
+                return value;
+    
+            // Для строк длиннее 50 символов показываем только начало и конец
+            return $"{value.Substring(0, 4)}....{value.Substring(value.Length - 4)}";
         }
     }
     
