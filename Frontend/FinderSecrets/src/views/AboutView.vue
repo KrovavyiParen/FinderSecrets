@@ -130,9 +130,13 @@ const sendText = async () => {
   result.value = null
 
   try {
-    const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-file', {
-      text: fileContent.value,
-      fileName: currentFile.value?.name || 'unknown'
+    const formData = new FormData()
+    formData.append('file', currentFile.value)
+    const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-file', formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data'  // ← ВАЖНО!
+      }
     })
     result.value = response.data
     

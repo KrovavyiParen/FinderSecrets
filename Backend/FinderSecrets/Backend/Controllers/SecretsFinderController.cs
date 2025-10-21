@@ -92,9 +92,7 @@ namespace Backend.Controllers
                     });
                 }
 
-                using var stream = new StreamReader(file.OpenReadStream());
-                var content = await stream.ReadToEndAsync();
-                var secrets = _secretsFinder.FindSecrets(content);
+                var secrets = _secretsFinder.FindSecretsInFile(file);
 
                 return Ok(new ScanResultDto
                 {
@@ -159,6 +157,7 @@ namespace Backend.Controllers
 
                 return Ok(new ScanResultDto
                 {
+                    FileName = url,
                     Secrets = secrets.Select(s => new SecretResponseDto
                     {
                         Type = s.Type,
