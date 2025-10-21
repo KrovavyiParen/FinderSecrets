@@ -1,7 +1,7 @@
 <template>
   <el-header class="main-header">
-    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt"> Var 1</el-button></RouterLink>
-    <RouterLink to="/about"> <el-button size="large" type="info" plain  round class="bt">Var 2</el-button></RouterLink>
+    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt"> Текст или ссылка</el-button></RouterLink>
+    <RouterLink to="/about"> <el-button size="large" type="info" plain  round class="bt">Файл</el-button></RouterLink>
   </el-header>
 </template>
 
