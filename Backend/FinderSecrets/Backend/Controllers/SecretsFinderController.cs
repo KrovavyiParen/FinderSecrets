@@ -8,8 +8,12 @@ using static Backend.Models.Model;
 
 namespace Backend.Controllers
 {
+    /// <summary>
+    /// Контроллер для поиска секретов и конфиденциальных данных
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class SecretsFinderController : ControllerBase
     {
         private readonly ISecretsFinder _secretsFinder;
@@ -21,6 +25,21 @@ namespace Backend.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Сканирование текста на наличие секретов
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// POST /api/SecretsFinder/scan-text
+        /// {
+        ///     "text": "password=secret123, api_key=AKIAIOSFODNN7EXAMPLE"
+        /// }
+        /// </remarks>
+        /// <param name="request">Объект запроса с текстом для сканирования</param>
+        /// <returns>Результат сканирования с найденными секретами</returns>
+        /// <response code="200">Успешное сканирование</response>
+        /// <response code="400">Неверный запрос</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpPost("scan-text")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -63,6 +82,19 @@ namespace Backend.Controllers
             }
         }
 
+        /// <summary>
+        /// Сканирование файла на наличие секретов
+        /// </summary>
+        /// <remarks>
+        /// Максимальный размер файла: 5MB
+        /// Поддерживаемые форматы: любые текстовые файлы
+        /// </remarks>
+        /// <param name="file">Файл для сканирования</param>
+        /// <returns>Результат сканирования файла</returns>
+        /// <response code="200">Успешное сканирование файла</response>
+        /// <response code="400">Неверный запрос</response>
+        /// <response code="413">Превышен максимальный размер файла</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpPost("scan-file")]
         [RequestSizeLimit(5_242_880)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
@@ -116,6 +148,12 @@ namespace Backend.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Получение списка поддерживаемых типов секретов
+        /// </summary>
+        /// <returns>Список типов секретов с описанием и примерами</returns>
+        /// <response code="200">Успешное получение списка</response>
         [HttpGet("supported-types")]
         [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
         public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
@@ -136,6 +174,12 @@ namespace Backend.Controllers
                 TotalTypes = supportedTypes.Count
             });
         }
+
+        /// <summary>
+        /// Проверка здоровья сервиса SecretsFinder
+        /// </summary>
+        /// <returns>Статус здоровья сервиса</returns>
+        /// <response code="200">Сервис работает корректно</response>
         [HttpGet("health")]
         [ProducesResponseType(typeof(HealthCheckDto), StatusCodes.Status200OK)]
         public ActionResult<HealthCheckResponse> HealthCheck()
@@ -147,15 +191,15 @@ namespace Backend.Controllers
                 Version = "1.0.0"
             });
         }
+
         private string MaskSensitiveValue(string value)
         {
             if (string.IsNullOrEmpty(value) || value.Length <= 8)
                 return "***MASKED***";
 
-            return value.Length > 16 
-                ? $"{value.Substring(0, 4)}...{value.Substring(value.Length - 4)}" 
+            return value.Length > 16
+                ? $"{value.Substring(0, 4)}...{value.Substring(value.Length - 4)}"
                 : "***MASKED***";
         }
     }
-    
 }
