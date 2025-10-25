@@ -1,3 +1,4 @@
+using Backend.Controllers;
 using Backend.Services;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -88,6 +89,8 @@ namespace Backend
                .WithSummary("Проверка здоровья системы")
                .WithDescription("Возвращает статус здоровья системы в текстовом формате")
                .Produces<string>(200, "text/plain");
+
+
 
             app.Run();
         }

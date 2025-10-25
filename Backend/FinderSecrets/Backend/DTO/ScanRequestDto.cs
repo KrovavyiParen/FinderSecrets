@@ -6,5 +6,7 @@ namespace Backend.DTO
         public string? Text { get; set; }
         public IFormFile? File { get; set; }
         public string? FilePath { get; set; }
+
+        public string? url { get; set; }
     }
 }
