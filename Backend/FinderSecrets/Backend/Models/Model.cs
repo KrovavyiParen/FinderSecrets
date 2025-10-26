@@ -14,6 +14,7 @@ namespace Backend.Models
         {
             public string Type { get; set; } = string.Empty;
             public string Value { get; set; } = string.Empty;
+            public string VariableName { get; set; } = string.Empty;
             public int LineNumber { get; set; }
             public int Position { get; set; }
         }

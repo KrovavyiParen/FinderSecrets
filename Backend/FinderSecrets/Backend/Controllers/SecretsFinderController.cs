@@ -133,6 +133,7 @@ namespace Backend.Controllers
                     {
                         Type = s.Type,
                         Value = s.Value,
+                        VariableName = s.VariableName,
                         LineNumber = s.LineNumber,
                         Position = s.Position
                     }).ToList()
