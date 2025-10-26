@@ -38,6 +38,9 @@
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
+      <el-button size="large" @click="clearData" :disabled="loading">
+        Очистить
+      </el-button>
     </div>
 
     <div v-if="result" class="results-section">
@@ -159,8 +162,16 @@ const sendText = async () => {
   } finally {
     loading.value = false
   }
+
 }
 
+
+const clearData = () => {
+  textarea.value = ''
+  url.value = ''
+  result.value = null
+  ElMessage.success('Данные очищены')
+}
 
 </script>
 

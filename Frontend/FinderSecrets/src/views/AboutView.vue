@@ -40,6 +40,9 @@
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
+      <el-button size="large" @click="clearData" :disabled="loading">
+        Очистить
+      </el-button>
     </div>
 
     <div v-if="result" class="results-section">
@@ -175,6 +178,18 @@ const sendText = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const clearData = () => {
+  // Очищаем файлы
+  fileList.value = []
+  fileContent.value = ''
+  currentFile.value = null
+  
+  // Очищаем результаты
+  result.value = null
+  
+  ElMessage.success('Все данные очищены')
 }
 </script>
 
