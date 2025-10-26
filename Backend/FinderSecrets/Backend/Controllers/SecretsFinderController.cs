@@ -68,6 +68,7 @@ namespace Backend.Controllers
                         Value = MaskSensitiveValue(s.Value),
                         LineNumber = s.LineNumber,
                         Position = s.Position,
+                        VariableName = s.VariableName,
                         IsActive = s.IsActive,
                         BotName = s.BotName,
                         BotUsername = s.BotUsername,
@@ -210,6 +211,7 @@ namespace Backend.Controllers
                     {
                         Type = s.Type,
                         Value = s.Value,
+                        VariableName = s.VariableName,
                         LineNumber = s.LineNumber,
                         Position = s.Position,
                         IsActive = s.IsActive,
