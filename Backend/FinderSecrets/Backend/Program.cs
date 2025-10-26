@@ -48,6 +48,8 @@ namespace Backend
                           .AllowCredentials();
                 });
             });
+
+            builder.Services.AddHttpClient();
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
 
             var app = builder.Build();

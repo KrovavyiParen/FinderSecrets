@@ -57,7 +57,7 @@ namespace Backend.Controllers
                     });
                 }
 
-                var secrets = _secretsFinder.FindSecrets(request.Text);
+                var secrets = await _secretsFinder.FindSecrets(request.Text);
 
                 return Ok(new ScanResultDto
                 {
@@ -67,7 +67,11 @@ namespace Backend.Controllers
                         Type = s.Type,
                         Value = MaskSensitiveValue(s.Value),
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }
@@ -124,7 +128,7 @@ namespace Backend.Controllers
                     });
                 }
 
-                var secrets = _secretsFinder.FindSecretsInFile(file);
+                var secrets = await _secretsFinder.FindSecretsInFile(file);
 
                 return Ok(new ScanResultDto
                 {
@@ -135,7 +139,11 @@ namespace Backend.Controllers
                         Value = s.Value,
                         VariableName = s.VariableName,
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }
@@ -193,7 +201,7 @@ namespace Backend.Controllers
                 
                 var client = new HttpClient();
                 string content = await client.GetStringAsync(url);
-                var secrets = _secretsFinder.FindSecrets(content);
+                var secrets = await _secretsFinder.FindSecrets(content);
 
                 return Ok(new ScanResultDto
                 {
@@ -203,7 +211,11 @@ namespace Backend.Controllers
                         Type = s.Type,
                         Value = s.Value,
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }

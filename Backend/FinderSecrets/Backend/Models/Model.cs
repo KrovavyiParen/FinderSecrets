@@ -17,6 +17,12 @@ namespace Backend.Models
             public string VariableName { get; set; } = string.Empty;
             public int LineNumber { get; set; }
             public int Position { get; set; }
+
+            // Дополнительные поля для Telegram токенов
+            public bool IsActive { get; set; }
+            public string BotName { get; set; } = string.Empty;
+            public string BotUsername { get; set; } = string.Empty;
+            public string ValidationError { get; set; } = string.Empty;
         }
 
         public class ScanResult
