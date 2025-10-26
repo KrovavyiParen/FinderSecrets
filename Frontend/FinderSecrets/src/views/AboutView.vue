@@ -58,7 +58,30 @@
             <span class="location">Строка {{ secret.lineNumber }}, позиция {{ secret.position }}</span>
           </div>
           <div class="secret-value">
+            <code>{{ secret.variableName }}</code>
+          </div>
+          <div class="secret-value">
             <code>{{ secret.value }}</code>
+          </div>
+          <div v-if="secret.type === 'Telegram-Token'" class="secret-value">
+            <span>
+              Актив:
+            </span>
+            <code>
+              {{ secret.isActive }}
+            </code>
+            <span>
+              Имя бота:
+            </span>
+            <code>
+              {{ secret.botName }}
+            </code>
+            <span>
+              Username:
+            </span>
+            <code>
+              {{ secret.botUsername }}
+            </code>
           </div>
         </div>
       </div>
@@ -212,8 +235,13 @@ main {
   color: #909399;
 }
 
+.secret-value {
+  margin: 20px;
+}
+
 .secret-value code {
   background: #fff;
+  margin: 5px;
   padding: 8px 12px;
   border-radius: 4px;
   border: 1px solid #e4e7ed;
