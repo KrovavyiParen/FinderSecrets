@@ -12,35 +12,32 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using System.Linq;
 
-
 namespace Backend.Services
 {
     public interface ISecretsFinder
     {
-
         List<SecretMatch> FindSecrets(string input);
         List<SecretMatch> FindSecretsInFile(IFormFile file);
         List<SecretMatch> FindSecretsInFilePath(string filePath);
         Task<bool> CheckDatabaseConnection();
         Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text");
-
-
     }
     
     public class SecretsFinder : ISecretsFinder
-{
-    private readonly List<Pattern> _patterns;
-    private readonly ILogger<SecretsFinder> _logger;
-    private readonly string _connectionString;
-    private readonly HttpClient _httpClient; 
-
-    public SecretsFinder(ILogger<SecretsFinder> logger, IConfiguration configuration, HttpClient httpClient)
     {
-        _logger = logger;
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-                            ?? throw new ArgumentNullException("DefaultConnection string is null");
-        _httpClient = httpClient;
-        InitializeDatabaseConnection().Wait(); 
+        private readonly List<Pattern> _patterns;
+        private readonly ILogger<SecretsFinder> _logger;
+        private readonly string _connectionString;
+        private readonly HttpClient _httpClient;
+
+        public SecretsFinder(ILogger<SecretsFinder> logger, IConfiguration configuration, HttpClient httpClient)
+        {
+            _logger = logger;
+            _connectionString = configuration.GetConnectionString("DefaultConnection")
+                                ?? throw new ArgumentNullException("DefaultConnection string is null");
+            _httpClient = httpClient;
+            _ = InitializeDatabaseConnection(); 
+
             _patterns = new List<Pattern>
             {
                 new("API-Key", @"\b([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,45})['""]?"),
@@ -49,6 +46,94 @@ namespace Backend.Services
             };
         }
 
+        public List<SecretMatch> FindSecrets(string input)
+        {
+            var matches = new List<SecretMatch>();
+            if (string.IsNullOrEmpty(input))
+                return matches;
+
+            var lines = input.Split('\n');
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                foreach (var pattern in _patterns)
+                {
+                    var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
+                    foreach (Match match in regexMatches)
+                    {
+                        if (match.Groups.Count >= 3)
+                        {
+                            var secretMatch = new SecretMatch
+                            {
+                                Type = pattern.Name,
+                                Value = match.Groups[2].Value,
+                                VariableName = match.Groups[1].Value.Trim(),
+                                LineNumber = i + 1,
+                                Position = match.Index
+                            };
+
+                            matches.Add(secretMatch);
+                        }
+                    }
+                }
+            }
+            return matches;
+        }
+
+        public List<SecretMatch> FindSecretsInFile(IFormFile file)
+        {
+            var matches = new List<SecretMatch>();
+            try
+            {
+                _logger.LogInformation($"Сканирующийся файл: {file.FileName}, размер файла: {file.Length}");
+                
+                using var stream = new StreamReader(file.OpenReadStream());
+                var content = stream.ReadToEnd();
+                matches = FindSecrets(content);
+                
+                // Устанавливаем имя файла для всех найденных секретов
+                foreach (var match in matches)
+                {
+                    match.FileName = file.FileName;
+                }
+                
+                _logger.LogInformation($"Найдено {matches.Count} секретов в файле: {file.FileName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при сканировании файла: {file.FileName}");
+                throw;
+            }
+            return matches;
+        }
+
+        public List<SecretMatch> FindSecretsInFilePath(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning($"Файл не найден: {filePath}");
+                return new List<SecretMatch>();
+            }
+
+            try
+            {
+                var content = File.ReadAllText(filePath);
+                var fileName = Path.GetFileName(filePath);
+                var matches = FindSecrets(content);
+                
+                foreach (var match in matches)
+                {
+                    match.FileName = fileName;
+                }
+                
+                return matches;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при чтении файла: {filePath}");
+                throw;
+            }
+        }
 
         public async Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text")
         {
@@ -63,8 +148,6 @@ namespace Backend.Services
                 using var connection = new NpgsqlConnection(_connectionString);
                 await connection.OpenAsync();
                 
-
-                // Вставляем найденные секреты
                 var insertSql = @"
                     INSERT INTO found_secrets (type, value, line_number, position, file_name, source)
                     VALUES (@type, @value, @line_number, @position, @file_name, @source)";
@@ -91,6 +174,7 @@ namespace Backend.Services
                 throw;
             }
         }
+
         public async Task<bool> CheckDatabaseConnection()
         {
             try
@@ -126,79 +210,6 @@ namespace Backend.Services
                 _logger.LogError(ex, "Ошибка при инициализации подключения к базе данных");
             }
         }
-        public List<SecretMatch> FindSecrets(string input)
-{
-    if (string.IsNullOrEmpty(input))
-    {
-        _logger.LogWarning("Входная строка для поиска секретов пуста");
-        return new List<SecretMatch>();
-    }
-
-    var matches = new List<SecretMatch>();
-    var lines = input.Split('\n');
-
-    for (int i = 0; i < lines.Length; i++)
-    {
-        foreach (var pattern in _patterns)
-        {
-            try
-            {
-                var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
-                foreach (Match match in regexMatches)
-                {
-                    if (match.Groups.Count >= 3)
-                    {
-                        var secretMatch = new SecretMatch
-                        {
-                            Type = pattern.Name,
-                            Value = match.Groups[2].Value,
-                            VariableName = match.Groups[1].Value.Trim(),
-                            LineNumber = i + 1,
-                            Position = match.Index
-                        };
-
-                        matches.Add(secretMatch);
-                    }
-                }
-            }
-            catch (RegexMatchTimeoutException ex)
-            {
-                _logger.LogWarning(ex, $"Таймаут regex при поиске паттерна {pattern.Name}");
-            }
-        }
-    }
-    
-    return matches;
-}
-
-        public List<SecretMatch> FindSecretsInFilePath(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            _logger.LogWarning($"Файл не найден: {filePath}");
-            return new List<SecretMatch>();
-        }
-
-        try
-        {
-            var content = File.ReadAllText(filePath);
-            var fileName = Path.GetFileName(filePath);
-            var matches = FindSecrets(content);
-            
-            // Устанавливаем имя файла для всех найденных секретов
-            foreach (var match in matches)
-            {
-                match.FileName = fileName;
-            }
-            
-            return matches;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Ошибка при чтении файла: {filePath}");
-            throw;
-        }
-    }
 
         private async Task ValidateTelegramToken(SecretMatch secretMatch)
         {
