@@ -182,6 +182,24 @@ namespace Backend.Controllers
 
             
         }
+
+        /// <summary>
+        /// Сканирует содержимое по URL на наличие секретов и конфиденциальной информации
+        /// </summary>
+        /// <remarks>
+        /// Отправляет HTTP-запрос по указанному URL, загружает содержимое и проверяет его на наличие:
+        /// - API ключей и токенов
+        /// - Паролей и учетных данных
+        /// - Приватных ключей SSH/RSA
+        /// - URL подключения к базам данных
+        /// - Криптокошельков и seed фраз
+        /// </remarks>
+        /// <param name="request">Объект запроса с URL для сканирования</param>
+        /// <returns>Результат сканирования с найденными секретами или ошибкой</returns>
+        /// <response code="200">Возвращает результат сканирования с найденными секретами</response>
+        /// <response code="400">Некорректный URL или ошибка валидации</response>
+        /// <response code="413">Превышен максимальный размер файла</response>
+        /// <response code="500">Внутренняя ошибка сервера при обработке запроса</response>
         [HttpPost("scan-url")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -232,8 +250,15 @@ namespace Backend.Controllers
             }
         }
 
-
-
+        /// <summary>
+        /// Возвращает список поддерживаемых типов секретов для сканирования
+        /// </summary>
+        /// <remarks>
+        /// Предоставляет информацию о всех типах конфиденциальных данных, которые может обнаружить сервис,
+        /// включая описание и примеры для каждого типа.
+        /// </remarks>
+        /// <returns>Список поддерживаемых типов секретов с описанием и примерами</returns>
+        /// <response code="200">Возвращает информацию о поддерживаемых типах секретов</response>
         [HttpGet("supported-types")]
         [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
         public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
