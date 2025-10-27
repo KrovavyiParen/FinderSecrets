@@ -1,0 +1,5 @@
+{
+    "postgresql.defaultDatabase": "findersecret",
+    "postgresql.defaultHost": "localhost",
+    "postgresql.defaultUsername": "postgres"
+}

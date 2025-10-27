@@ -1,4 +1,3 @@
-
 services:
   secrets-finder-backend:
     build:
@@ -8,8 +7,11 @@ services:
       - "5200:5200"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=secrets-finder-db;Database=findersecret;Username=postgres;Password=12345;Port=5432
     container_name: secrets-finder-app
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   secrets-finder-frontend:
     build:

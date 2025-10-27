@@ -3,6 +3,10 @@ using Backend.Services;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using Backend.Models;
+using Backend.Services;
+
 
 namespace Backend
 {
@@ -15,6 +19,13 @@ namespace Backend
             // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
+            // Добавляем DbContext
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            // Регистрируем сервисы
+            builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
+            builder.Services.AddScoped<DatabaseService>();
 
             // Настройка Swagger с XML комментариями
             builder.Services.AddSwaggerGen(c =>
@@ -48,7 +59,6 @@ namespace Backend
                           .AllowCredentials();
                 });
             });
-            builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
 
             var app = builder.Build();
 
