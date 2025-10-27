@@ -6,34 +6,49 @@ using System.IO;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using System.Linq;
+
+
 namespace Backend.Services
 {
     public interface ISecretsFinder
     {
+
         List<SecretMatch> FindSecrets(string input);
         List<SecretMatch> FindSecretsInFile(IFormFile file);
         List<SecretMatch> FindSecretsInFilePath(string filePath);
         Task<bool> CheckDatabaseConnection();
         Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text");
-    }
-    public class SecretsFinder : ISecretsFinder
-    {
-        private readonly List<Pattern> _patterns;
-        private readonly ILogger<SecretsFinder> _logger;
-        private readonly string _connectionString;
 
-        public SecretsFinder(ILogger<SecretsFinder> logger, IConfiguration configuration)
-        {
-            _logger = logger;
-            _connectionString = configuration.GetConnectionString("DefaultConnection") 
-                                ?? throw new ArgumentNullException("DefaultConnection string is null");
-            _ = InitializeDatabaseConnection();
+
+    }
+    
+    public class SecretsFinder : ISecretsFinder
+{
+    private readonly List<Pattern> _patterns;
+    private readonly ILogger<SecretsFinder> _logger;
+    private readonly string _connectionString;
+    private readonly HttpClient _httpClient; 
+
+    public SecretsFinder(ILogger<SecretsFinder> logger, IConfiguration configuration, HttpClient httpClient)
+    {
+        _logger = logger;
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+                            ?? throw new ArgumentNullException("DefaultConnection string is null");
+        _httpClient = httpClient;
+        InitializeDatabaseConnection().Wait(); 
             _patterns = new List<Pattern>
             {
-                new("API-Key", @"\b[a-zA-Z0-9]{32,45}\b"),
-                new("Telegram-Token", @"\d{8,10}:[\w_-]{35}")
+                new("API-Key", @"\b([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,45})['""]?"),
+                new("Telegram-Token", @"([a-zA-Z0-9_]+)\s*[=:]\s*['""]?(\d{8,10}:[\w_-]{35})['""]?"),
+                new("JSON-Key-Value", @"""([a-zA-Z0-9_]+)""\s*[=:]\s*""([a-zA-Z0-9]{32,45})"""),
             };
         }
+
 
         public async Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text")
         {
@@ -112,104 +127,116 @@ namespace Backend.Services
             }
         }
         public List<SecretMatch> FindSecrets(string input)
-        {
-            var matches = new List<SecretMatch>();
-            var lines = input.Split('\n');
+{
+    if (string.IsNullOrEmpty(input))
+    {
+        _logger.LogWarning("Входная строка для поиска секретов пуста");
+        return new List<SecretMatch>();
+    }
 
-            for (int i = 0; i < lines.Length; i++)
+    var matches = new List<SecretMatch>();
+    var lines = input.Split('\n');
+
+    for (int i = 0; i < lines.Length; i++)
+    {
+        foreach (var pattern in _patterns)
+        {
+            try
             {
-                foreach (var pattern in _patterns)
+                var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
+                foreach (Match match in regexMatches)
                 {
-                    var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
-                    foreach (Match match in regexMatches)
+                    if (match.Groups.Count >= 3)
                     {
-                        matches.Add(new SecretMatch
+                        var secretMatch = new SecretMatch
                         {
                             Type = pattern.Name,
-                            Value = match.Value,
+                            Value = match.Groups[2].Value,
+                            VariableName = match.Groups[1].Value.Trim(),
                             LineNumber = i + 1,
                             Position = match.Index
-                        });
+                        };
+
+                        matches.Add(secretMatch);
                     }
                 }
             }
-            return matches;
-        }
-        public List<SecretMatch> FindSecretsInFile(IFormFile file)
-        {
-            var matches = new List<SecretMatch>();
-            try
+            catch (RegexMatchTimeoutException ex)
             {
-                _logger.LogInformation($"Сканирующийся файл: {file.FileName}, размер файла: {file.Length} Б");
-                using var stream = new StreamReader(file.OpenReadStream());
-                var content = stream.ReadToEnd();
-                var lines = content.Split('\n');
-                for (int i = 0; i < lines.Length; i++)
-                {
-                    foreach (var pattern in _patterns)
-                    {
-                        var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
-                        foreach (Match match in regexMatches)
-                        {
-                            matches.Add(new SecretMatch
-                            {
-                                Type = pattern.Name,
-                                Value = match.Value,
-                                LineNumber = i+1,
-                                Position = match.Index,
-                                FileName = file.FileName
-                            });
-                        }
-                    }
-                }
-                _logger.LogInformation($"Найдено {matches.Count} секретов в файле: {file.FileName}");
+                _logger.LogWarning(ex, $"Таймаут regex при поиске паттерна {pattern.Name}");
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при сканировании файла: {file.FileName}");
-                throw;
-            }
-            return matches;
         }
+    }
+    
+    return matches;
+}
+
         public List<SecretMatch> FindSecretsInFilePath(string filePath)
+    {
+        if (!File.Exists(filePath))
         {
-            var matches = new List<SecretMatch>();
+            _logger.LogWarning($"Файл не найден: {filePath}");
+            return new List<SecretMatch>();
+        }
+
+        try
+        {
+            var content = File.ReadAllText(filePath);
+            var fileName = Path.GetFileName(filePath);
+            var matches = FindSecrets(content);
+            
+            // Устанавливаем имя файла для всех найденных секретов
+            foreach (var match in matches)
+            {
+                match.FileName = fileName;
+            }
+            
+            return matches;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Ошибка при чтении файла: {filePath}");
+            throw;
+        }
+    }
+
+        private async Task ValidateTelegramToken(SecretMatch secretMatch)
+        {
             try
             {
-                if (!File.Exists(filePath))
+                var url = $"https://api.telegram.org/bot{secretMatch.Value}/getMe";
+                var response = await _httpClient.GetAsync(url);
+                
+                if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning($"Файл не найден: {filePath}");
-                    return matches;
-                }
-                _logger.LogInformation($"Сканируется файл, находящийся: {filePath}");
-                var lines = File.ReadAllLines(filePath);
-                var fileName = Path.GetFileName(filePath);
-                for (int i = 0; i < lines.Length; i++)
-                {
-                    foreach (var pattern in _patterns)
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    using var document = JsonDocument.Parse(jsonResponse);
+                    
+                    if (document.RootElement.GetProperty("ok").GetBoolean())
                     {
-                        var regexMatches = Regex.Matches(lines[i], pattern.RegexPattern);
-                        foreach (Match match in regexMatches)
-                        {
-                            matches.Add(new SecretMatch
-                            {
-                                Type = pattern.Name,
-                                Value = match.Value,
-                                LineNumber = i+1,
-                                Position = match.Index,
-                                FileName = fileName
-                            });
-                        }
+                        var result = document.RootElement.GetProperty("result");
+                        secretMatch.IsActive = true;
+                        secretMatch.BotName = result.GetProperty("first_name").GetString();
+                        secretMatch.BotUsername = result.GetProperty("username").GetString();
+                    }
+                    else
+                    {
+                        secretMatch.IsActive = false;
+                        secretMatch.ValidationError = "Токен недействителен";
                     }
                 }
-                _logger.LogInformation($"Найдено {matches.Count} секретов в файле: {fileName}");
+                else
+                {
+                    secretMatch.IsActive = false;
+                    secretMatch.ValidationError = $"HTTP ошибка: {response.StatusCode}";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при сканировании файла, находящегося {filePath}");
-                throw;
+                _logger.LogError(ex, $"Ошибка при проверке Telegram токена: {secretMatch.Value}");
+                secretMatch.IsActive = false;
+                secretMatch.ValidationError = "Ошибка при проверке токена";
             }
-            return matches;
         }
     }
 
@@ -229,8 +256,15 @@ namespace Backend.Services
     {
         public string Type { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+        public string VariableName { get; set; } = string.Empty; 
         public int LineNumber { get; set; }
         public int Position { get; set; }
-        public string FileName {get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        
+        // Дополнительные поля для Telegram токенов
+        public bool IsActive { get; set; }
+        public string BotName { get; set; } = string.Empty;
+        public string BotUsername { get; set; } = string.Empty;
+        public string ValidationError { get; set; } = string.Empty;
     }
 }

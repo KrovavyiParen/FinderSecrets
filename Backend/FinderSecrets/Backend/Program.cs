@@ -5,7 +5,7 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Backend.Models;
-using Backend.Services;
+
 
 
 namespace Backend
@@ -59,6 +59,11 @@ namespace Backend
                           .AllowCredentials();
                 });
             });
+
+
+            builder.Services.AddHttpClient();
+            builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
+
 
             var app = builder.Build();
 

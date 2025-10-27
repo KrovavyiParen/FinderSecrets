@@ -133,6 +133,9 @@ namespace Backend.Controllers
                 // Сохраняем в историю сканирований
                 await SaveToScanHistory(1, "text", request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
 
+
+
+
                 return Ok(new ScanResultDto
                 {
                     FileName = "text-input",
@@ -141,7 +144,12 @@ namespace Backend.Controllers
                         Type = s.Type,
                         Value = MaskSensitiveValue(s.Value),
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        VariableName = s.VariableName,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }
@@ -199,6 +207,7 @@ namespace Backend.Controllers
                         FileName = file.FileName
                     });
                 }
+
                 var userId = await GetCurrentUserIdAsync();
                 var scanRequest = new ScanRequestEntity
                 {
@@ -229,6 +238,10 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
                 await SaveToScanHistory(1, "file", file.FileName, secrets.Count);
 
+
+
+
+
                 return Ok(new ScanResultDto
                 {
                     FileName = file.FileName,
@@ -236,8 +249,13 @@ namespace Backend.Controllers
                     {
                         Type = s.Type,
                         Value = s.Value,
+                        VariableName = s.VariableName,
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }
@@ -275,6 +293,24 @@ namespace Backend.Controllers
 
             
         }
+
+        /// <summary>
+        /// Сканирует содержимое по URL на наличие секретов и конфиденциальной информации
+        /// </summary>
+        /// <remarks>
+        /// Отправляет HTTP-запрос по указанному URL, загружает содержимое и проверяет его на наличие:
+        /// - API ключей и токенов
+        /// - Паролей и учетных данных
+        /// - Приватных ключей SSH/RSA
+        /// - URL подключения к базам данных
+        /// - Криптокошельков и seed фраз
+        /// </remarks>
+        /// <param name="request">Объект запроса с URL для сканирования</param>
+        /// <returns>Результат сканирования с найденными секретами или ошибкой</returns>
+        /// <response code="200">Возвращает результат сканирования с найденными секретами</response>
+        /// <response code="400">Некорректный URL или ошибка валидации</response>
+        /// <response code="413">Превышен максимальный размер файла</response>
+        /// <response code="500">Внутренняя ошибка сервера при обработке запроса</response>
         [HttpPost("scan-url")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -308,6 +344,7 @@ namespace Backend.Controllers
                 requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
                 var client = new HttpClient();
                 string content = await client.GetStringAsync(url);
+
                 var secrets = _secretsFinder.FindSecrets(content);
                 stopwatch.Stop();
                 var foundSecrets = secrets.Select(s => new FoundSecret
@@ -331,6 +368,7 @@ namespace Backend.Controllers
                 // Сохраняем в историю сканирований
                 await SaveToScanHistory(userId, "url", request.url, secrets.Count);
 
+
                 return Ok(new ScanResultDto
                 {
                     FileName = url,
@@ -338,8 +376,13 @@ namespace Backend.Controllers
                     {
                         Type = s.Type,
                         Value = s.Value,
+                        VariableName = s.VariableName,
                         LineNumber = s.LineNumber,
-                        Position = s.Position
+                        Position = s.Position,
+                        IsActive = s.IsActive,
+                        BotName = s.BotName,
+                        BotUsername = s.BotUsername,
+                        ValidationError = s.ValidationError
                     }).ToList()
                 });
             }
@@ -354,8 +397,15 @@ namespace Backend.Controllers
             }
         }
 
-
-
+        /// <summary>
+        /// Возвращает список поддерживаемых типов секретов для сканирования
+        /// </summary>
+        /// <remarks>
+        /// Предоставляет информацию о всех типах конфиденциальных данных, которые может обнаружить сервис,
+        /// включая описание и примеры для каждого типа.
+        /// </remarks>
+        /// <returns>Список поддерживаемых типов секретов с описанием и примерами</returns>
+        /// <response code="200">Возвращает информацию о поддерживаемых типах секретов</response>
         [HttpGet("supported-types")]
         [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
         public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
