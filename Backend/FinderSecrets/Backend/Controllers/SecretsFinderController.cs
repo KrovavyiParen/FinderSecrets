@@ -283,7 +283,7 @@ namespace Backend.Controllers
 
         
 
-        public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] UrlRequest request)
+        public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] Backend.DTO.UrlRequest request)
         {
             var stopwatch = Stopwatch.StartNew();
             int requestId = 0;
