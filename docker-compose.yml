@@ -14,6 +14,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-database.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d findersecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
   pgadmin:
     image: dpage/pgadmin4
     container_name: secrets-finder-pgadmin
@@ -26,7 +31,8 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     restart: unless-stopped
     depends_on:
-      - secrets-finder-db
+      - secrets-finder-db:
+        condition: services_healthy
 
   secrets-finder-backend:
     build:
@@ -39,6 +45,9 @@ services:
       - ConnectionStrings__DefaultConnection=Host=secrets-finder-db;Database=findersecret;Username=postgres;Password=12345;Port=5432
     container_name: secrets-finder-app
     restart: unless-stopped
+    depends_on:
+      secrets-finder-db:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
