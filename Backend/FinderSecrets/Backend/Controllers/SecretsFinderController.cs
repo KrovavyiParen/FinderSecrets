@@ -31,8 +31,6 @@ namespace Backend.Controllers
         }
         private async Task<int> GetCurrentUserIdAsync()
         {
-            // Временное решение - возвращаем ID первого пользователя или создаем нового
-            // В реальном приложении здесь должна быть аутентификация
             try
             {
                 using var scope = HttpContext.RequestServices.CreateScope();
@@ -44,7 +42,7 @@ namespace Backend.Controllers
                     return user.Id;
                 }
                 
-                // Если пользователей нет, создаем временного
+                //Если пользователей нет, создаем временного
                 var newUser = new User
                 {
                     Username = "anonymous",
@@ -54,7 +52,8 @@ namespace Backend.Controllers
                 
                 context.Users.Add(newUser);
                 await context.SaveChangesAsync();
-                return newUser.Id;
+                await Task.CompletedTask;
+                return 1;
             }
             catch (Exception ex)
             {
@@ -97,7 +96,7 @@ namespace Backend.Controllers
                     });
                 }
                 var userId = await GetCurrentUserIdAsync();
-                 // Сохраняем запрос в БД
+                 //Сохраняем запрос в БД
                 var scanRequest = new ScanRequestEntity
                 {
                     UserId = await GetCurrentUserIdAsync(), //1, // Временное значение, можно получить из аутентификации
@@ -111,10 +110,10 @@ namespace Backend.Controllers
 
                 var secrets = _secretsFinder.FindSecrets(request.Text);
                 stopwatch.Stop();
-                // Сохраняем найденные секреты в БД
+                //Сохраняем найденные секреты в БД
                 var foundSecrets = secrets.Select(s => new FoundSecret
                 {
-                    RequestId = requestId,
+                   RequestId = requestId,
                     SecretType = s.Type,
                     SecretValue = s.Value,
                     VariableName = "", // Можно добавить извлечение имени переменной
@@ -330,7 +329,7 @@ namespace Backend.Controllers
                 try {  url = UrlValidate(request.url); }
                 catch (Exception x)
                 {return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url });}
-                // Сохраняем запрос в БД
+                //Сохраняем запрос в БД
                 var userId = await GetCurrentUserIdAsync();
                 var scanRequest = new ScanRequestEntity
                 {
