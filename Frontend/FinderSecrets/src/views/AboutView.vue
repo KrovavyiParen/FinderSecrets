@@ -188,8 +188,6 @@ const clearData = () => {
   
   // Очищаем результаты
   result.value = null
-  
-  ElMessage.success('Все данные очищены')
 }
 </script>
 

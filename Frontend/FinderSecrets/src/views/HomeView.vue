@@ -170,7 +170,6 @@ const clearData = () => {
   textarea.value = ''
   url.value = ''
   result.value = null
-  ElMessage.success('Данные очищены')
 }
 
 </script>
