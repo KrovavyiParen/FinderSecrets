@@ -107,7 +107,7 @@ namespace Backend.Controllers
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status413PayloadTooLarge)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
 
-        
+
         public async Task<ActionResult<ScanResultDto>> ScanFile(IFormFile file)
         {
             try
@@ -169,18 +169,19 @@ namespace Backend.Controllers
 
         private string UrlValidate(string url)
         {
-            Uri uri = new Uri(url);
-
-            if (uri.Host == "github.com")
+            url = url.Trim();
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             {
-                return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
+                throw new Exception("invalid link");
             }
-            else if (uri.Host == "raw.githubusercontent.com")
-            { return url; }
-            else 
-            { throw new Exception("Not a github link"); }
 
-            
+                if (uri.Host == "github.com")
+                {
+                    return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
+                }
+                else
+                { return url; }
+       
         }
 
         /// <summary>
@@ -206,20 +207,44 @@ namespace Backend.Controllers
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status413PayloadTooLarge)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
 
-        
+
 
         public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] UrlRequest request)
         {
             string url = "";
             try
             {
-                
-                try {  url = UrlValidate(request.url); }
+
+                try { url = UrlValidate(request.url); }
                 catch (Exception x)
-                {return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url });}
-                
-                var client = new HttpClient();
-                string content = await client.GetStringAsync(url);
+                { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
+
+                string content;
+
+                try
+                {
+                    var client = new HttpClient();
+                    content = await client.GetStringAsync(url);
+                }
+
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch URL: {url}", url);
+                    return BadRequest(new ScanResultDto
+                    {
+                        Error = "Unable to fetch URL. Check the link or site availability.",
+                        FileName = url
+                    });
+                }
+                catch (TaskCanceledException ex) // timeout
+                {
+                    _logger.LogWarning(ex, "Timeout fetching URL: {url}", url);
+                    return BadRequest(new ScanResultDto
+                    {
+                        Error = "Fetching URL timed out.",
+                        FileName = url
+                    });
+                }
                 var secrets = await _secretsFinder.FindSecrets(content);
 
                 return Ok(new ScanResultDto
@@ -302,9 +327,9 @@ namespace Backend.Controllers
             if (string.IsNullOrEmpty(value))
                 return "***MASKED***";
 
-             if (value.Length <= 50)
+            if (value.Length <= 50)
                 return value;
-    
+
             // Для строк длиннее 50 символов показываем только начало и конец
             return $"{value.Substring(0, 4)}....{value.Substring(value.Length - 4)}";
 
