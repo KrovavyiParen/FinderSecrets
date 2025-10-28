@@ -391,4 +391,4 @@ Thumbs.db
 
 # Project specific
 database-backup.sql
-init-database.sql
+# init-database.sql
