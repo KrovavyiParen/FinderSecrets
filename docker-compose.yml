@@ -31,8 +31,8 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     restart: unless-stopped
     depends_on:
-      - secrets-finder-db:
-        condition: services_healthy
+      secrets-finder-db:
+        condition: service_healthy
 
   secrets-finder-backend:
     build:
@@ -42,7 +42,7 @@ services:
       - "5200:5200"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=secrets-finder-db;Database=findersecret;Username=postgres;Password=12345;Port=5432
+      - ConnectionStrings__DefaultConnection=Host=secrets-finder-db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Port=5432
     container_name: secrets-finder-app
     restart: unless-stopped
     depends_on:
