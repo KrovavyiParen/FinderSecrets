@@ -227,8 +227,8 @@ namespace Backend.Services
                     {
                         var result = document.RootElement.GetProperty("result");
                         secretMatch.IsActive = true;
-                        secretMatch.BotName = result.GetProperty("first_name").GetString();
-                        secretMatch.BotUsername = result.GetProperty("username").GetString();
+                        secretMatch.BotName = "BotName" ?? result.GetProperty("first_name").GetString();
+                        secretMatch.BotUsername = "BotUsername" ?? result.GetProperty("username").GetString();
                     }
                     else
                     {
