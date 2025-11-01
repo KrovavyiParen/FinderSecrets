@@ -4,8 +4,11 @@ using Microsoft.Extensions.Logging;
 using Backend.Services;
 using System.ComponentModel.DataAnnotations;
 using Backend.DTO;
+using System.Collections.Generic;
 using static Backend.Models.Model;
-
+using Backend.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 namespace Backend.Controllers
 {
     /// <summary>
@@ -18,13 +21,46 @@ namespace Backend.Controllers
     {
         private readonly ISecretsFinder _secretsFinder;
         private readonly ILogger<SecretsFinderController> _logger;
+        private readonly DatabaseService _databaseService;
 
-        public SecretsFinderController(ISecretsFinder secretsFinder, ILogger<SecretsFinderController> logger)
+        public SecretsFinderController(ISecretsFinder secretsFinder, ILogger<SecretsFinderController> logger, DatabaseService databaseService)
         {
             _secretsFinder = secretsFinder;
             _logger = logger;
+            _databaseService = databaseService;
         }
-
+        private async Task<int> GetCurrentUserIdAsync()
+        {
+            try
+            {
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                
+                var user = await context.Users.FirstOrDefaultAsync();
+                if (user != null)
+                {
+                    return user.Id;
+                }
+                
+                //Если пользователей нет, создаем временного
+                var newUser = new User
+                {
+                    Username = "anonymous",
+                    Email = "anonymous@example.com",
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                context.Users.Add(newUser);
+                await context.SaveChangesAsync();
+                await Task.CompletedTask;
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current user");
+                return 1; // fallback
+            }
+        }
         /// <summary>
         /// Сканирование текста на наличие секретов
         /// </summary>
@@ -46,6 +82,9 @@ namespace Backend.Controllers
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ScanResultDto>> ScanText([FromBody] ScanTextRequestDto request)
         {
+            var stopwatch = Stopwatch.StartNew();
+            int requestId = 0;
+
             try
             {
                 if (string.IsNullOrWhiteSpace(request.Text))
@@ -56,8 +95,45 @@ namespace Backend.Controllers
                         FileName = "text-input"
                     });
                 }
+                var userId = await GetCurrentUserIdAsync();
+                 //Сохраняем запрос в БД
+                var scanRequest = new ScanRequestEntity
+                {
+                    UserId = await GetCurrentUserIdAsync(), //1, // Временное значение, можно получить из аутентификации
+                    InputType = "text",
+                    InputData = request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text,
+                    SecretsCount = 0,
+                    ScanDuration = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
 
-                var secrets = await _secretsFinder.FindSecrets(request.Text);
+                var secrets = _secretsFinder.FindSecrets(request.Text);
+                stopwatch.Stop();
+                //Сохраняем найденные секреты в БД
+                var foundSecrets = secrets.Select(s => new FoundSecret
+                {
+                   RequestId = requestId,
+                    SecretType = s.Type,
+                    SecretValue = s.Value,
+                    VariableName = "", // Можно добавить извлечение имени переменной
+                    LineNumber = s.LineNumber,
+                    Position = s.Position,
+                    FirstFoundAt = DateTime.UtcNow,
+                    LastFoundAt = DateTime.UtcNow,
+                    IsActive = true
+                }).ToList();
+
+                await _databaseService.SaveFoundSecretsAsync(foundSecrets);
+
+                // Обновляем статистику сканирования
+                await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
+
+                // Сохраняем в историю сканирований
+                await SaveToScanHistory(1, "text", request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
+
+
+
 
                 return Ok(new ScanResultDto
                 {
@@ -110,6 +186,8 @@ namespace Backend.Controllers
 
         public async Task<ActionResult<ScanResultDto>> ScanFile(IFormFile file)
         {
+            var stopwatch = Stopwatch.StartNew();
+            int requestId = 0;
             try
             {
                 if (file == null || file.Length == 0)
@@ -129,7 +207,39 @@ namespace Backend.Controllers
                     });
                 }
 
-                var secrets = await _secretsFinder.FindSecretsInFile(file);
+                var userId = await GetCurrentUserIdAsync();
+                var scanRequest = new ScanRequestEntity
+                {
+                    UserId = userId,
+                    InputType = "file",
+                    InputData = $"File: {file.FileName}, Size: {file.Length} bytes",
+                    SecretsCount = 0,
+                    ScanDuration = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                var secrets = _secretsFinder.FindSecretsInFile(file);
+                stopwatch.Stop();
+                var foundSecrets = secrets.Select(s => new FoundSecret
+                {
+                    RequestId = requestId,
+                    SecretType = s.Type,
+                    SecretValue = s.Value,
+                    VariableName = "",
+                    LineNumber = s.LineNumber,
+                    Position = s.Position,
+                    FirstFoundAt = DateTime.UtcNow,
+                    LastFoundAt = DateTime.UtcNow,
+                    IsActive = true
+                }).ToList();
+                await _databaseService.SaveFoundSecretsAsync(foundSecrets);
+                // Обновляем статистику сканирования
+                await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
+                await SaveToScanHistory(1, "file", file.FileName, secrets.Count);
+
+
+
+
 
                 return Ok(new ScanResultDto
                 {
@@ -209,43 +319,55 @@ namespace Backend.Controllers
 
 
 
-        public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] UrlRequest request)
+        public async Task<ActionResult<ScanResultDto>> ScanURL([FromBody] Backend.DTO.UrlRequest request)
         {
+            var stopwatch = Stopwatch.StartNew();
+            int requestId = 0;
             string url = "";
             try
             {
 
                 try { url = UrlValidate(request.url); }
                 catch (Exception x)
-                { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
-
-                string content;
-
-                try
+                {return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url });}
+                //Сохраняем запрос в БД
+                var userId = await GetCurrentUserIdAsync();
+                var scanRequest = new ScanRequestEntity
                 {
-                    var client = new HttpClient();
-                    content = await client.GetStringAsync(url);
-                }
+                    UserId = userId,
+                    InputType = "url",
+                    InputData = $"URL: {request.url}",
+                    SecretsCount = 0,
+                    ScanDuration = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                var client = new HttpClient();
+                string content = await client.GetStringAsync(url);
 
-                catch (HttpRequestException ex)
+                var secrets = _secretsFinder.FindSecrets(content);
+                stopwatch.Stop();
+                var foundSecrets = secrets.Select(s => new FoundSecret
                 {
-                    _logger.LogWarning(ex, "Failed to fetch URL: {url}", url);
-                    return BadRequest(new ScanResultDto
-                    {
-                        Error = "Unable to fetch URL. Check the link or site availability.",
-                        FileName = url
-                    });
-                }
-                catch (TaskCanceledException ex) // timeout
-                {
-                    _logger.LogWarning(ex, "Timeout fetching URL: {url}", url);
-                    return BadRequest(new ScanResultDto
-                    {
-                        Error = "Fetching URL timed out.",
-                        FileName = url
-                    });
-                }
-                var secrets = await _secretsFinder.FindSecrets(content);
+                    RequestId = requestId,
+                    SecretType = s.Type,
+                    SecretValue = s.Value,
+                    VariableName = "",
+                    LineNumber = s.LineNumber,
+                    Position = s.Position,
+                    FirstFoundAt = DateTime.UtcNow,
+                    LastFoundAt = DateTime.UtcNow,
+                    IsActive = true
+                }).ToList();
+
+                await _databaseService.SaveFoundSecretsAsync(foundSecrets);
+
+                // Обновляем статистику сканирования
+                await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
+
+                // Сохраняем в историю сканирований
+                await SaveToScanHistory(userId, "url", request.url, secrets.Count);
+
 
                 return Ok(new ScanResultDto
                 {
@@ -312,16 +434,38 @@ namespace Backend.Controllers
         /// <response code="200">Сервис работает корректно</response>
         [HttpGet("health")]
         [ProducesResponseType(typeof(HealthCheckDto), StatusCodes.Status200OK)]
-        public ActionResult<HealthCheckResponse> HealthCheck()
+        public async Task<ActionResult<HealthCheckDto>> HealthCheck()
         {
-            return Ok(new HealthCheckDto
+            var healthCheck = new HealthCheckDto
             {
                 Status = "Healthy",
                 Timestamp = DateTime.UtcNow,
-                Version = "1.0.0"
-            });
-        }
+                Version = "1.0.0",
+                Services = new Dictionary<string, string>()
+            };
 
+            // Проверка подключения к базе данных
+            try
+            {
+                // Предполагая, что _secretsFinder имеет метод проверки БД
+                var dbStatus = await _secretsFinder.CheckDatabaseConnection();
+                //healthCheck.Services.Add("Database", dbStatus ? "Connected" : "Disconnected");
+                
+                if (!dbStatus)
+                {
+                    healthCheck.Status = "Unhealthy";
+                    healthCheck.Error = "Database connection failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                healthCheck.Status = "Unhealthy";
+                healthCheck.Error = $"Database error: {ex.Message}";
+                //healthCheck.Services.Add("Database", "Error");
+            }
+
+            return Ok(healthCheck);
+        }
         private string MaskSensitiveValue(string value)
         {
             if (string.IsNullOrEmpty(value))
@@ -333,6 +477,30 @@ namespace Backend.Controllers
             // Для строк длиннее 50 символов показываем только начало и конец
             return $"{value.Substring(0, 4)}....{value.Substring(value.Length - 4)}";
 
+        }
+        private async Task SaveToScanHistory(int userId, string inputType, string inputPreview, int secretsFound)
+        {
+            try
+            {
+                var scanHistory = new ScanHistory
+                {
+                    UserId = userId,
+                    InputType = inputType,
+                    InputPreview = inputPreview,
+                    SecretsFound = secretsFound,
+                    ScannedAt = DateTime.UtcNow
+                };
+
+                // Используем контекст базы данных для сохранения
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                context.ScanHistory.Add(scanHistory);
+                await context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving to scan history");
+            }
         }
     }
 }

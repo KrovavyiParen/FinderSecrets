@@ -1,5 +1,39 @@
-
 services:
+  secrets-finder-db:
+    image: postgres:15
+    container_name: secrets-finder-db
+    env_file:
+      - .env 
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-database.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d findersecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: secrets-finder-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+    depends_on:
+      secrets-finder-db:
+        condition: service_healthy
+
   secrets-finder-backend:
     build:
       context: .
@@ -8,8 +42,14 @@ services:
       - "5200:5200"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=secrets-finder-db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Port=5432
     container_name: secrets-finder-app
     restart: unless-stopped
+    depends_on:
+      secrets-finder-db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   secrets-finder-frontend:
     build:
@@ -21,3 +61,6 @@ services:
     restart: unless-stopped
     depends_on:
       - secrets-finder-backend
+volumes:
+  postgres_data:  # Постоянное хранилище для PostgreSQL
+  pgadmin_data:   # Постоянное хранилище для pgAdmin
