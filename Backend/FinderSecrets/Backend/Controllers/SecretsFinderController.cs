@@ -9,6 +9,8 @@ using static Backend.Models.Model;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 namespace Backend.Controllers
 {
     /// <summary>
@@ -35,13 +37,13 @@ namespace Backend.Controllers
             {
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                
+
                 var user = await context.Users.FirstOrDefaultAsync();
                 if (user != null)
                 {
                     return user.Id;
                 }
-                
+
                 //Если пользователей нет, создаем временного
                 var newUser = new User
                 {
@@ -49,7 +51,7 @@ namespace Backend.Controllers
                     Email = "anonymous@example.com",
                     CreatedAt = DateTime.UtcNow
                 };
-                
+
                 context.Users.Add(newUser);
                 await context.SaveChangesAsync();
                 await Task.CompletedTask;
@@ -96,7 +98,7 @@ namespace Backend.Controllers
                     });
                 }
                 var userId = await GetCurrentUserIdAsync();
-                 //Сохраняем запрос в БД
+                //Сохраняем запрос в БД
                 var scanRequest = new ScanRequestEntity
                 {
                     UserId = await GetCurrentUserIdAsync(), //1, // Временное значение, можно получить из аутентификации
@@ -113,7 +115,7 @@ namespace Backend.Controllers
                 //Сохраняем найденные секреты в БД
                 var foundSecrets = secrets.Select(s => new FoundSecret
                 {
-                   RequestId = requestId,
+                    RequestId = requestId,
                     SecretType = s.Type,
                     SecretValue = s.Value,
                     VariableName = "", // Можно добавить извлечение имени переменной
@@ -280,18 +282,18 @@ namespace Backend.Controllers
         private string UrlValidate(string url)
         {
             url = url.Trim();
-                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             {
                 throw new Exception("invalid link");
             }
 
-                if (uri.Host == "github.com")
-                {
-                    return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
-                }
-                else
-                { return url; }
-       
+            if (uri.Host == "github.com")
+            {
+                return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
+            }
+            else
+            { return url; }
+
         }
 
         /// <summary>
@@ -329,7 +331,7 @@ namespace Backend.Controllers
 
                 try { url = UrlValidate(request.url); }
                 catch (Exception x)
-                {return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url });}
+                { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
                 //Сохраняем запрос в БД
                 var userId = await GetCurrentUserIdAsync();
                 var scanRequest = new ScanRequestEntity
@@ -428,6 +430,234 @@ namespace Backend.Controllers
         }
 
         /// <summary>
+        /// Получение истории и статистики найденных токенов
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// GET /api/SecretsFinder/tokens-history
+        /// GET /api/SecretsFinder/tokens-history?statistics=true
+        /// GET /api/SecretsFinder/tokens-history?secretType=API_KEY&amp;page=1&amp;pageSize=20
+        /// </remarks>
+        [HttpGet("tokens-history")]
+        [ProducesResponseType(typeof(TokenHistoryResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<TokenHistoryResponseDto>> GetTokensHistory(
+            [FromQuery] TokensHistoryRequestDto request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Для FoundSecrets - связь через ScanRequests
+                var secretsQuery = context.FoundSecrets
+                    .Join(context.ScanRequests,
+                          fs => fs.RequestId,
+                          sr => sr.Id,
+                          (fs, sr) => new { FoundSecret = fs, ScanRequest = sr })
+                    .Where(join => join.ScanRequest.UserId == userId)
+                    .Select(join => join.FoundSecret);
+
+                // Для FoundTokens - связь через ScanHistory
+                var tokensQuery = context.FoundTokens
+                    .Join(context.ScanHistory,
+                          ft => ft.HistoryId,
+                          sh => sh.Id,
+                          (ft, sh) => new { FoundToken = ft, ScanHistory = sh })
+                    .Where(join => join.ScanHistory.UserId == userId)
+                    .Select(join => join.FoundToken);
+
+                // Применяем фильтры для FoundSecrets
+                if (request.FromDate.HasValue)
+                {
+                    secretsQuery = secretsQuery.Where(fs => fs.FirstFoundAt >= request.FromDate.Value);
+                }
+
+                if (request.ToDate.HasValue)
+                {
+                    secretsQuery = secretsQuery.Where(fs => fs.FirstFoundAt <= request.ToDate.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.SecretType))
+                {
+                    secretsQuery = secretsQuery.Where(fs => fs.SecretType == request.SecretType);
+                }
+
+                if (request.IsActive.HasValue)
+                {
+                    secretsQuery = secretsQuery.Where(fs => fs.IsActive == request.IsActive.Value);
+                }
+
+                // Применяем фильтры для FoundTokens
+                if (request.FromDate.HasValue)
+                {
+                    tokensQuery = tokensQuery.Where(ft => ft.LastSeen >= request.FromDate.Value);
+                }
+
+                if (request.ToDate.HasValue)
+                {
+                    tokensQuery = tokensQuery.Where(ft => ft.LastSeen <= request.ToDate.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.SecretType))
+                {
+                    tokensQuery = tokensQuery.Where(ft => ft.TokenType == request.SecretType);
+                }
+
+                if (request.IsActive.HasValue)
+                {
+                    tokensQuery = tokensQuery.Where(ft => ft.IsActive == request.IsActive.Value);
+                }
+
+                if (request.Statistics)
+                {
+                    return await GetStatisticsResponse(secretsQuery, tokensQuery);
+                }
+                else
+                {
+                    return await GetDetailedHistoryResponse(secretsQuery, tokensQuery, request.Page, request.PageSize);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving tokens history");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        private async Task<ActionResult<TokenHistoryResponseDto>> GetStatisticsResponse(
+            IQueryable<FoundSecret> secretsQuery,
+            IQueryable<FoundToken> tokensQuery)
+        {
+            // Статистика по типам для FoundSecrets
+            var secretsByType = await secretsQuery
+                .GroupBy(fs => fs.SecretType)
+                .Select(g => new TokenTypeStatisticDto
+                {
+                    Type = g.Key,
+                    Category = "Secret",
+                    Count = g.Count(),
+                    LastFound = g.Max(fs => fs.FirstFoundAt)
+                })
+                .ToListAsync();
+
+            // Статистика по типам для FoundTokens
+            var tokensByType = await tokensQuery
+                .GroupBy(ft => ft.TokenType)
+                .Select(g => new TokenTypeStatisticDto
+                {
+                    Type = g.Key,
+                    Category = "Token",
+                    Count = g.Count(),
+                    LastFound = g.Max(ft => ft.LastSeen)
+                })
+                .ToListAsync();
+
+            var allStatistics = secretsByType.Concat(tokensByType).ToList();
+
+            var totalSecrets = await secretsQuery.CountAsync();
+            var totalTokens = await tokensQuery.CountAsync();
+            var activeSecrets = await secretsQuery.CountAsync(fs => fs.IsActive);
+            var activeTokens = await tokensQuery.CountAsync(ft => ft.IsActive);
+
+            return Ok(new TokenHistoryResponseDto
+            {
+                Statistics = new TokensStatisticsDto
+                {
+                    TotalSecrets = totalSecrets,
+                    TotalTokens = totalTokens,
+                    TotalItems = totalSecrets + totalTokens,
+                    ActiveSecrets = activeSecrets,
+                    ActiveTokens = activeTokens,
+                    ActiveItems = activeSecrets + activeTokens,
+                    StatisticsByType = allStatistics
+                },
+                Items = new List<TokenHistoryItemDto>(),
+                TotalCount = 0,
+                Page = 1,
+                PageSize = 0,
+                GeneratedAt = DateTime.UtcNow
+            });
+        }
+
+        private async Task<ActionResult<TokenHistoryResponseDto>> GetDetailedHistoryResponse(
+            IQueryable<FoundSecret> secretsQuery,
+            IQueryable<FoundToken> tokensQuery,
+            int page,
+            int pageSize)
+        {
+            // Детальные записи для FoundSecrets
+            var secretsItems = await secretsQuery
+                .Select(fs => new TokenHistoryItemDto
+                {
+                    Id = fs.Id,
+                    Category = "Secret",
+                    SecretType = fs.SecretType,
+                    SecretValue = MaskSensitiveValue(fs.SecretValue),
+                    VariableName = fs.VariableName,
+                    LineNumber = fs.LineNumber,
+                    Position = fs.Position,
+                    FirstFoundAt = fs.FirstFoundAt,
+                    LastFoundAt = fs.LastFoundAt,
+                    IsActive = fs.IsActive,
+                    InputType = "Secret Scan",
+                    InputPreview = $"Secret: {fs.SecretType}",
+                    ScanDate = fs.FirstFoundAt
+                })
+                .ToListAsync();
+
+            // Детальные записи для FoundTokens
+            var tokensItems = await tokensQuery
+                .Select(ft => new TokenHistoryItemDto
+                {
+                    Id = ft.Id,
+                    Category = "Token",
+                    SecretType = ft.TokenType,
+                    SecretValue = MaskSensitiveValue(ft.TokenPreview),
+                    VariableName = "N/A",
+                    LineNumber = 0,
+                    Position = 0,
+                    FirstFoundAt = ft.LastSeen,
+                    LastFoundAt = ft.LastSeen,
+                    IsActive = ft.IsActive,
+                    InputType = "Token Scan",
+                    InputPreview = $"Token: {ft.TokenType}",
+                    ScanDate = ft.LastSeen
+                })
+                .ToListAsync();
+
+            var allItems = secretsItems.Concat(tokensItems)
+                .OrderByDescending(x => x.FirstFoundAt)
+                .ToList();
+
+            // Применяем пагинацию
+            var totalCount = allItems.Count;
+            var pagedItems = allItems
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var totalSecrets = secretsItems.Count;
+            var totalTokens = tokensItems.Count;
+
+            return Ok(new TokenHistoryResponseDto
+            {
+                Statistics = new TokensStatisticsDto
+                {
+                    TotalSecrets = totalSecrets,
+                    TotalTokens = totalTokens,
+                    TotalItems = totalCount
+                },
+                Items = pagedItems,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                GeneratedAt = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
         /// Проверка здоровья сервиса SecretsFinder
         /// </summary>
         /// <returns>Статус здоровья сервиса</returns>
@@ -450,7 +680,7 @@ namespace Backend.Controllers
                 // Предполагая, что _secretsFinder имеет метод проверки БД
                 var dbStatus = await _secretsFinder.CheckDatabaseConnection();
                 //healthCheck.Services.Add("Database", dbStatus ? "Connected" : "Disconnected");
-                
+
                 if (!dbStatus)
                 {
                     healthCheck.Status = "Unhealthy";
