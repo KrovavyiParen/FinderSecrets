@@ -3,7 +3,7 @@
     public class TokenHistoryItemDto
     {
         public int Id { get; set; }
-        public string Category { get; set; } = string.Empty; // "Secret" или "Token"
+        public string Category { get; set; } = string.Empty;
         public string SecretType { get; set; } = string.Empty;
         public string SecretValue { get; set; } = string.Empty;
         public string VariableName { get; set; } = string.Empty;

@@ -1,42 +1,43 @@
-using System;
-using System.ComponentModel.DataAnnotations;
+using Backend.Models;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
-namespace Backend.Models
+[Table("found_secrets")]
+public class FoundSecret
 {
-    [Table("found_secrets")]
-    public class FoundSecret
-    {
-        [Key]
-        [Column("id")]
-        public int Id { get; set; }
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
 
-        [Column("request_id")]
-        public int RequestId { get; set; }
+    [Column("request_id")]
+    public int RequestId { get; set; }
 
-        [Column("secret_type")]
-        [StringLength(50)]
-        public required string SecretType { get; set; }
+    // Навигационное свойство с явным указанием внешнего ключа
+    [ForeignKey("RequestId")]
+    public ScanRequestEntity ScanRequest { get; set; }
 
-        [Column("secret_value")]
-        public required string SecretValue { get; set; }
+    [Column("secret_type")]
+    [StringLength(50)]
+    public required string SecretType { get; set; }
 
-        [Column("variable_name")]
-        public required string VariableName { get; set; }
+    [Column("secret_value")]
+    public required string SecretValue { get; set; }
 
-        [Column("line_number")]
-        public int LineNumber { get; set; }
+    [Column("variable_name")]
+    public required string VariableName { get; set; }
 
-        [Column("position")]
-        public int Position { get; set; }
+    [Column("line_number")]
+    public int LineNumber { get; set; }
 
-        [Column("first_found_at")]
-        public DateTime FirstFoundAt { get; set; }
+    [Column("position")]
+    public int Position { get; set; }
 
-        [Column("last_found_at")]
-        public DateTime LastFoundAt { get; set; }
+    [Column("first_found_at")]
+    public DateTime FirstFoundAt { get; set; }
 
-        [Column("is_active")]
-        public bool IsActive { get; set; } = true;
-    }
+    [Column("last_found_at")]
+    public DateTime LastFoundAt { get; set; }
+
+    [Column("is_active")]
+    public bool IsActive { get; set; } = true;
 }

@@ -20,8 +20,14 @@ namespace Backend.Models
             modelBuilder.Entity<FoundSecret>().ToTable("found_secrets", "public");
             modelBuilder.Entity<ScanRequestEntity>().ToTable("scan_requests", "public");
             modelBuilder.Entity<User>().ToTable("users", "public");
-            modelBuilder.Entity<FoundToken>().ToTable("found_tokens", "public");
             modelBuilder.Entity<ScanHistory>().ToTable("scan_history", "public");
+
+            // Явная настройка связи между FoundSecret и ScanRequestEntity
+            modelBuilder.Entity<FoundSecret>()
+                .HasOne(fs => fs.ScanRequest)
+                .WithMany()
+                .HasForeignKey(fs => fs.RequestId) // Явно указываем свойство внешнего ключа
+                .IsRequired();
         }
     }
 
