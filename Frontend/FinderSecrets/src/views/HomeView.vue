@@ -4,7 +4,6 @@
     <div class="input-mode-selector">
       <el-radio-group v-model="inputMode" size="large">
         <el-radio-button label="text">Текст</el-radio-button>
-        <el-radio-button label="url">Ссылка</el-radio-button>
         <el-radio-button label="file">Файл</el-radio-button>
       </el-radio-group>
     </div>
@@ -14,24 +13,10 @@
       <el-input
         v-model="textarea"
         type="textarea"
-        placeholder="Введите текст для проверки"
+        placeholder="Введите текст или ссылку для проверки"
         class="in"
         :rows="6"
       />
-    </div>
-
-    <!-- Поле для ввода ссылки -->
-    <div v-else-if="inputMode === 'url'" class="input-section">
-      <el-input
-        v-model="url"
-        type="url"
-        placeholder="Введите ссылку для проверки"
-        class="in url-input"
-        clearable
-      />
-      <div class="url-hint">
-        <el-text type="info">Будет сканироваться содержимое по указанной ссылке</el-text>
-      </div>
     </div>
 
     <div v-else class="input-section">
@@ -73,15 +58,6 @@
 
     <div v-if="inputMode === 'text'">
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
-        {{ loading ? 'Сканируем' : 'Найти секреты' }}
-      </el-button>
-      <el-button size="large" @click="clearData" :disabled="loading">
-        Очистить
-      </el-button>
-    </div>
-
-    <div v-else-if="inputMode === 'url'">
-      <el-button size="large" type="primary" :loading="loading" @click="sendUrl">          
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
       <el-button size="large" @click="clearData" :disabled="loading">
@@ -208,7 +184,7 @@ const handleFileRemove = () => {
 const sendText = async () => {
 
   if (inputMode.value === 'text' && !textarea.value.trim()) {
-    ElMessage.warning('Пожалуйста, введите текст для проверки')
+    ElMessage.warning('Пожалуйста, введите текст или ссылку для проверки')
     return
   }
 
@@ -228,44 +204,6 @@ const sendText = async () => {
     loading.value = false
   }
 }
-
-
-const sendUrl = async () => {
-
-  if (inputMode.value === 'url' && !url.value.trim()) {
-    ElMessage.warning('Пожалуйста, введите ссылку для проверки')
-    return
-  }
-
-  // Валидация URL
-  if (inputMode.value === 'url') {
-    try {
-      new URL(url.value)
-    } catch (error) {
-      ElMessage.warning('Пожалуйста, введите корректную ссылку')
-      return
-    }
-  }
- 
-  loading.value = true
-  result.value = null
-
-  try {
-
-      const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-url', {
-      url: url.value
-    })
-      result.value = response.data
-
-  } catch (error) {
-    result.value = { 
-      error: error.response?.data?.message || error.message 
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
 
 const sendFile = async () => {
   if (!fileContent.value) {
