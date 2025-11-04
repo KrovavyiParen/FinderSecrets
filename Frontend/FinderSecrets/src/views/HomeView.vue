@@ -5,6 +5,7 @@
       <el-radio-group v-model="inputMode" size="large">
         <el-radio-button label="text">Текст</el-radio-button>
         <el-radio-button label="url">Ссылка</el-radio-button>
+        <el-radio-button label="file">Файл</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -20,7 +21,7 @@
     </div>
 
     <!-- Поле для ввода ссылки -->
-    <div v-else class="input-section">
+    <div v-else-if="inputMode === 'url'" class="input-section">
       <el-input
         v-model="url"
         type="url"
@@ -33,9 +34,63 @@
       </div>
     </div>
 
+    <div v-else class="input-section">
+      <el-upload
+      class="upload-demo"
+      drag
+      action="#"
+      :auto-upload="false"
+      :on-change="handleFileChange"
+      :on-remove="handleFileRemove"
+      :file-list="fileList"
+      :limit="1"
+      accept=".txt,.log,.json,.xml,.yaml,.yml,.config,.conf,.ini,.env,.properties,.sql,.csv,.tsv,.key,.pem,.ppk,.pub,.cer,.crt,.der,.p12,.pfx,.p7b,.p7c"
+    >
+      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+      <div class="el-upload__text">
+        Перетащите файл сюда или <em>нажмите для загрузки</em>
+      </div>
+      <template #tip>
+        <div class="el-upload__tip">
+          Поддерживаемые форматы: текстовые файлы, конфиги, ключи (txt, log, json, xml, yaml, env, key, pem и др.)
+        </div>
+      </template>
+    </el-upload>
 
-    <div>
+    <!-- Показываем содержимое выбранного файла -->
+    <div v-if="fileContent && !loading" class="file-preview">
+      <h4>Предпросмотр содержимого файла:</h4>
+      <el-input
+        v-model="fileContent"
+        type="textarea"
+        readonly
+        placeholder="Содержимое файла появится здесь"
+        class="file-content-preview"
+        :rows="6"
+      />
+    </div>
+    </div>
+
+    <div v-if="inputMode === 'text'">
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
+        {{ loading ? 'Сканируем' : 'Найти секреты' }}
+      </el-button>
+      <el-button size="large" @click="clearData" :disabled="loading">
+        Очистить
+      </el-button>
+    </div>
+
+    <div v-else-if="inputMode === 'url'">
+      <el-button size="large" type="primary" :loading="loading" @click="sendUrl">          
+        {{ loading ? 'Сканируем' : 'Найти секреты' }}
+      </el-button>
+      <el-button size="large" @click="clearData" :disabled="loading">
+        Очистить
+      </el-button>
+    </div>
+
+    <div v-else>
+      <el-button size="large" type="primary" :loading="loading" @click="sendFile">          
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
       <el-button size="large" @click="clearData" :disabled="loading">
@@ -106,13 +161,47 @@
 
 <script setup>
 import { ref } from 'vue'
+import { UploadFilled } from '@element-plus/icons-vue'
 import axios from '../../node_modules/axios/dist/axios.min.js'
 
 const inputMode = ref('text')
 const textarea = ref('')
 const url = ref('')
+const fileList = ref([])
+const fileContent = ref('')
+const currentFile = ref(null)
 const loading = ref(false)
 const result = ref(null)
+
+
+const handleFileChange = (file) => {
+  currentFile.value = file.raw
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      fileContent.value = e.target.result
+      result.value = null // Сбрасываем предыдущие результаты
+    } catch (error) {
+      fileContent.value = ''
+      ElMessage.error('Ошибка чтения файла')
+    }
+  }
+reader.onerror = () => {
+    ElMessage.error('Ошибка при чтении файла')
+    fileContent.value = ''
+  }
+  
+  reader.readAsText(file.raw)
+}
+
+// Обработчик удаления файла
+const handleFileRemove = () => {
+  fileContent.value = ''
+  currentFile.value = null
+  result.value = null
+  fileList.value = []
+}
 
 
 
@@ -122,6 +211,26 @@ const sendText = async () => {
     ElMessage.warning('Пожалуйста, введите текст для проверки')
     return
   }
+
+  loading.value = true
+  result.value = null
+
+  try {
+      const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-text', {
+      text: textarea.value
+    })
+      result.value = response.data  
+  } catch (error) {
+    result.value = { 
+      error: error.response?.data?.message || error.message 
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+
+const sendUrl = async () => {
 
   if (inputMode.value === 'url' && !url.value.trim()) {
     ElMessage.warning('Пожалуйста, введите ссылку для проверки')
@@ -137,24 +246,17 @@ const sendText = async () => {
       return
     }
   }
-
-
+ 
   loading.value = true
   result.value = null
 
   try {
 
-    if (inputMode.value === 'text') {
-      const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-text', {
-      text: textarea.value
-    })
-      result.value = response.data  
-    } else {
       const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-url', {
       url: url.value
     })
       result.value = response.data
-    }
+
   } catch (error) {
     result.value = { 
       error: error.response?.data?.message || error.message 
@@ -162,19 +264,80 @@ const sendText = async () => {
   } finally {
     loading.value = false
   }
+}
 
+
+const sendFile = async () => {
+  if (!fileContent.value) {
+    ElMessage.warning('Сначала выберите файл')
+    return
+  }
+  
+  loading.value = true
+  result.value = null
+
+  try {
+    const formData = new FormData()
+    formData.append('file', currentFile.value)
+    const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-file', formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data'  // ← ВАЖНО!
+      }
+    })
+    result.value = response.data
+    
+  } catch (error) {
+    if (error.response) {
+        console.log('Status:', error.response.status);
+        console.log('Headers:', error.response.headers);
+        console.log('Data:', error.response.data); // Здесь должна быть детальная ошибка от сервера
+    }
+    result.value = { 
+      error: error.response?.data?.message || error.message 
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
 
 const clearData = () => {
   textarea.value = ''
   url.value = ''
+  fileList.value = []
+  fileContent.value = ''
+  currentFile.value = null
   result.value = null
+
 }
 
 </script>
 
 <style scoped>
+.upload-demo {
+  margin: 20px auto;
+  width: 90%;
+}
+
+.file-content-preview {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  width: 90%;
+}
+
+.file-preview {
+  margin: 20px 0;
+}
+
+.file-info {
+  margin-bottom: 15px;
+}
+
+.file-info .el-tag {
+  margin-right: 10px;
+}
+
 .in {
   margin-top: 20px;
   margin-bottom: 20px;

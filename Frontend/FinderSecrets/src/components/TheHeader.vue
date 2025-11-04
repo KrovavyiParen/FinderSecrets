@@ -1,7 +1,7 @@
 <template>
   <el-header class="main-header">
-    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt"> Текст или ссылка</el-button></RouterLink>
-    <RouterLink to="/about"> <el-button size="large" type="info" plain  round class="bt">Файл</el-button></RouterLink>
+    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt">Поиск токена</el-button></RouterLink>
+    <RouterLink to="/history"> <el-button size="large" type="info" plain  round class="bt">История</el-button></RouterLink>
   </el-header>
 </template>
 
