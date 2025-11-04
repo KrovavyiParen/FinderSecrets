@@ -86,7 +86,8 @@ namespace Backend.Controllers
         {
             var stopwatch = Stopwatch.StartNew();
             int requestId = 0;
-
+            bool IsUrl = false;
+            string url = "";
             try
             {
                 if (string.IsNullOrWhiteSpace(request.Text))
@@ -97,23 +98,29 @@ namespace Backend.Controllers
                         FileName = "text-input"
                     });
                 }
-                var userId = await GetCurrentUserIdAsync();
+
+                try { url = UrlValidate(request.Text, out IsUrl); }
+                catch (Exception x)
+                { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.Text }); }
                 //Сохраняем запрос в БД
+                var userId = await GetCurrentUserIdAsync();
                 var scanRequest = new ScanRequestEntity
                 {
-                    UserId = await GetCurrentUserIdAsync(), //1, // Временное значение, можно получить из аутентификации
-                    InputType = "text",
-                    InputData = request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text,
+                    UserId = userId,
+                    InputType = IsUrl ? "url" : "text",
+                    InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
                     SecretsCount = 0,
                     ScanDuration = 0,
                     CreatedAt = DateTime.UtcNow
                 };
                 requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                var client = new HttpClient();
+                string content = IsUrl ? await client.GetStringAsync(url) : request.Text;
 
-                var secrets = _secretsFinder.FindSecrets(request.Text);
+                var secrets = _secretsFinder.FindSecrets(content);
                 stopwatch.Stop();
-                //Сохраняем найденные секреты в БД
                 var foundSecrets = secrets.Select(s => new FoundSecret
+                //Сохраняем найденные секреты в БД
                 {
                     RequestId = requestId,
                     SecretType = s.Type,
@@ -132,14 +139,12 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
 
                 // Сохраняем в историю сканирований
-                await SaveToScanHistory(1, "text", request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
-
-
+                await SaveToScanHistory(userId, IsUrl ? "url" : "text",request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
 
 
                 return Ok(new ScanResultDto
                 {
-                    FileName = "text-input",
+                    FileName = IsUrl ? url : "text-input",
                     Secrets = secrets.Select(s => new SecretResponseDto
                     {
                         Type = s.Type,
@@ -156,14 +161,15 @@ namespace Backend.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error scanning text");
+                _logger.LogError(ex, IsUrl ? $"Error scanning file: {url}" : "Error scanning text");
                 return StatusCode(500, new ScanResultDto
                 {
                     Error = ex.Message,
-                    FileName = "text-input"
+                    FileName = url ?? "unknown"
                 });
             }
         }
+
 
         /// <summary>
         /// Сканирование файла на наличие секретов
@@ -279,22 +285,36 @@ namespace Backend.Controllers
         /// <response code="200">Успешное получение списка</response>
 
 
-        private string UrlValidate(string url)
+        private string UrlValidate(string input, out bool isUrl)
         {
-            url = url.Trim();
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            input = input.Trim();
+            if (string.IsNullOrWhiteSpace(input))
             {
-                throw new Exception("invalid link");
+                isUrl = false;
+                throw new Exception("empty input");
+            }
+            if (!input.Contains(".") || (!Uri.TryCreate(input, UriKind.Absolute, out Uri? uri)
+                && !Uri.TryCreate("https://" + input, UriKind.Absolute, out uri)))
+            {
+                isUrl = false;
+                return "";
             }
 
-            if (uri.Host == "github.com")
-            {
-                return $"https://raw.githubusercontent.com/" + $"{uri.Segments[1]}{uri.Segments[2]}{uri.Segments[4]}{string.Join("", uri.Segments.Skip(5))}";
-            }
-            else
-            { return url; }
+            isUrl = true;
 
+            if (uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+            {
+
+                var segments = uri.Segments.Select(s => s.Trim('/')).Where(s => !string.IsNullOrEmpty(s)).ToArray();
+                if (segments.Length >= 4 && segments[2] == "blob")
+                {
+                    return $"https://raw.githubusercontent.com/{segments[0]}/{segments[1]}/{segments[3]}/{string.Join("/", segments.Skip(4))}";
+                }
+            }
+
+            return uri.ToString();
         }
+
 
         /// <summary>
         /// Сканирует содержимое по URL на наличие секретов и конфиденциальной информации
@@ -329,7 +349,7 @@ namespace Backend.Controllers
             try
             {
 
-                try { url = UrlValidate(request.url); }
+                try { url = UrlValidate(request.url, out bool IsUrl); }
                 catch (Exception x)
                 { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
                 //Сохраняем запрос в БД
