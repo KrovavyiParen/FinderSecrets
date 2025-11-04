@@ -19,41 +19,24 @@
           </el-alert>
         </div>
         
-        <div v-for="(secret, index) in result.items" :key="index" class="secret-item">
-          <div class="secret-header">
-            <el-tag type="danger">{{ secret.secretType }}</el-tag>
-            <span class="location">Строка {{ secret.lineNumber }}, позиция {{ secret.position }}</span>
-          </div>
-          <div class="secret-value">
-            <code>{{ secret.variableName }}</code>
-          </div>
-          <div class="secret-value">
-            <code>{{ secret.secretValue }}</code>
-          </div>
-          <div v-if="secret.secretType === 'Telegram-Token'" class="secret-value">
-            <span>
-              Актив:
-            </span>
-            <code>
-              {{ secret.isActive }}
-            </code>
-            <span>
-              Имя бота:
-            </span>
-            <code>
-              {{ secret.botName }}
-            </code>
-            <span>
-              Username:
-            </span>
-            <code>
-              {{ secret.botUsername }}
-            </code>
-          </div>
-        </div>
+        <el-table :data="tableData" border style="width: 100%">
+          <el-table-column prop="secretType" label="Тип" sortable />
+          <el-table-column prop="variableName" label="Имя переменной" sortable />
+          <el-table-column prop="secretValue" label="Значение секрета" sortable />
+          <el-table-column prop="lineNumber" label="Номер строки" sortable />
+          <el-table-column prop="firstFound" label="Впервые найден" sortable />
+          <el-table-column prop="lastFound" label="В последний раз найден" sortable />
+          <el-table-column prop="isActive" label="Активен" sortable>
+            <template #default="scope">
+              <el-tag :type="getActiveTagType(scope.row.isActive)">
+                {{ getActiveText(scope.row.isActive) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
-      <div v-else-if="Array.isArray(result.items) && result.secrets.length === 0" class="no-secrets">
+      <div v-else-if="Array.isArray(result.items) && result.items.length === 0" class="no-secrets">
         <el-alert title="Отлично!" type="success" show-icon>
           Секреты не найдены
         </el-alert>
@@ -71,30 +54,19 @@
 </template>
 
 <script setup>
-
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from '../../node_modules/axios/dist/axios.min.js'
 
-const inputMode = ref('text')
 const loading = ref(false)
 const result = ref(null)
 
-
-
 const sendText = async () => {
-
-
-
   loading.value = true
   result.value = null
 
   try {
-
-    
-      const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {
-    })
-      result.value = response.data
-    
+    const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {})
+    result.value = response.data
   } catch (error) {
     result.value = { 
       error: error.response?.data?.message || error.message 
@@ -102,42 +74,44 @@ const sendText = async () => {
   } finally {
     loading.value = false
   }
-
 }
-
 
 const clearData = () => {
   result.value = null
 }
 
+const tableData = computed(() => {
+  if (!result.value || !Array.isArray(result.value.items)) {
+    return []
+  }
 
+  return result.value.items.map(item => ({
+    secretType: item.secretType || "не указано",
+    variableName: item.variableName || 'Не указано',
+    secretValue: item.secretValue || 'Не указано',
+    lineNumber: item.lineNumber || 'Не указано',
+    firstFound: item.firstFoundAt || 'Не указано',
+    lastFound: item.lastFoundAt || 'Не указано',
+    isActive: item.isActive || 'Не указано'
+  }))
+})
 
+// Функция для получения типа тега активности
+const getActiveTagType = (isActive) => {
+  if (isActive === true) return 'danger'
+  if (isActive === false) return 'success'
+  return 'info'
+}
+
+// Функция для получения текста активности
+const getActiveText = (isActive) => {
+  if (isActive === true) return 'Да'
+  if (isActive === false) return 'Нет'
+  return 'Неизвестно'
+}
 </script>
 
 <style scoped>
-.upload-demo {
-  margin: 20px auto;
-  width: 90%;
-}
-
-.file-content-preview {
-  margin-top: 10px;
-  margin-bottom: 20px;
-  width: 90%;
-}
-
-.file-preview {
-  margin: 20px 0;
-}
-
-.file-info {
-  margin-bottom: 15px;
-}
-
-.file-info .el-tag {
-  margin-right: 10px;
-}
-
 main {
   border: 1px solid #e4e7ed;
   border-radius: 20px;
@@ -187,5 +161,10 @@ main {
 
 .error-result {
   margin-top: 20px;
+}
+
+.truncated-text {
+  cursor: help;
+  border-bottom: 1px dotted #606266;
 }
 </style>
