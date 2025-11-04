@@ -502,7 +502,7 @@ namespace Backend.Controllers
                 }
                 else
                 {
-                    return await GetDetailedHistoryResponse(secretsQuery, request.Page, request.PageSize);
+                    return await GetDetailedHistoryResponse(secretsQuery);
                 }
             }
             catch (Exception ex)
@@ -513,8 +513,6 @@ namespace Backend.Controllers
                     Statistics = new TokensStatisticsDto(),
                     Items = new List<TokenHistoryItemDto>(),
                     TotalCount = 0,
-                    Page = request.Page,
-                    PageSize = request.PageSize,
                     GeneratedAt = DateTime.UtcNow
                 });
             }
@@ -552,16 +550,12 @@ namespace Backend.Controllers
                 },
                 Items = new List<TokenHistoryItemDto>(),
                 TotalCount = 0,
-                Page = 1,
-                PageSize = 0,
                 GeneratedAt = DateTime.UtcNow
             });
         }
 
         private async Task<ActionResult<TokenHistoryResponseDto>> GetDetailedHistoryResponse(
-            IQueryable<FoundSecret> secretsQuery,
-            int page,
-            int pageSize)
+            IQueryable<FoundSecret> secretsQuery)
         {
             var secretsItems = await secretsQuery
                 .Select(fs => new TokenHistoryItemDto
@@ -585,8 +579,6 @@ namespace Backend.Controllers
             // Применяем пагинацию
             var totalCount = secretsItems.Count;
             var pagedItems = secretsItems
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
                 .ToList();
 
             return Ok(new TokenHistoryResponseDto
@@ -599,8 +591,6 @@ namespace Backend.Controllers
                 },
                 Items = pagedItems,
                 TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize,
                 GeneratedAt = DateTime.UtcNow
             });
         }

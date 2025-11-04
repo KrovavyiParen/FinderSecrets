@@ -2,7 +2,7 @@
   <main>
     <div>
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
-        {{ loading ? 'Сканируем' : 'Найти секреты' }}
+        {{ loading ? 'Сканируем' : 'Найти историю' }}
       </el-button>
       <el-button size="large" @click="clearData" :disabled="loading">
         Очистить
