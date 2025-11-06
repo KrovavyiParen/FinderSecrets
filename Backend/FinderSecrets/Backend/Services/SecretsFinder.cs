@@ -18,7 +18,6 @@ namespace Backend.Services
     {
         List<SecretMatch> FindSecrets(string input);
         List<SecretMatch> FindSecretsInFile(IFormFile file);
-        List<SecretMatch> FindSecretsInFilePath(string filePath);
         Task<bool> CheckDatabaseConnection();
         Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text");
     }
@@ -72,6 +71,11 @@ namespace Backend.Services
                                 Position = match.Index
                             };
 
+                            if (pattern.Name == "Telegram-Token")
+                            {
+                                ValidateTelegramToken(secretMatch).GetAwaiter().GetResult();
+                            }
+
                             matches.Add(secretMatch);
                         }
                     }
@@ -105,34 +109,6 @@ namespace Backend.Services
                 throw;
             }
             return matches;
-        }
-
-        public List<SecretMatch> FindSecretsInFilePath(string filePath)
-        {
-            if (!File.Exists(filePath))
-            {
-                _logger.LogWarning($"Файл не найден: {filePath}");
-                return new List<SecretMatch>();
-            }
-
-            try
-            {
-                var content = File.ReadAllText(filePath);
-                var fileName = Path.GetFileName(filePath);
-                var matches = FindSecrets(content);
-                
-                foreach (var match in matches)
-                {
-                    match.FileName = fileName;
-                }
-                
-                return matches;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при чтении файла: {filePath}");
-                throw;
-            }
         }
 
         public async Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text")
@@ -227,8 +203,8 @@ namespace Backend.Services
                     {
                         var result = document.RootElement.GetProperty("result");
                         secretMatch.IsActive = true;
-                        secretMatch.BotName = "BotName" ?? result.GetProperty("first_name").GetString();
-                        secretMatch.BotUsername = "BotUsername" ?? result.GetProperty("username").GetString();
+                        secretMatch.BotName = result.GetProperty("first_name").GetString()  ?? "BotName";
+                        secretMatch.BotUsername = result.GetProperty("username").GetString() ?? "BotUsername";
                     }
                     else
                     {
