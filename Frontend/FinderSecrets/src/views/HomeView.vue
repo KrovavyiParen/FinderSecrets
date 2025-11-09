@@ -1,3 +1,5 @@
+<!----------------Начало страницы !-->
+
 <template>
   <main>
     <!-- Переключатель между текстом и ссылкой -->
@@ -135,6 +137,11 @@
   </main>
 </template>
 
+<!----------------Конец страницы !-->
+
+<!----------------Начало скрипта !-->
+
+
 <script setup>
 import { ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
@@ -252,6 +259,11 @@ const clearData = () => {
 
 </script>
 
+<!----------------Конец скрипта !-->
+
+
+<!----------------Начало стилей CSS !-->
+
 <style scoped>
 .upload-demo {
   margin: 20px auto;
@@ -332,3 +344,6 @@ main {
   margin-top: 20px;
 }
 </style>
+
+
+<!----------------Конец стилей CSS !-->
