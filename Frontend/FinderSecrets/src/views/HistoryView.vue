@@ -19,7 +19,12 @@
           </el-alert>
         </div>
         
-        <el-table :data="tableData" border style="width: 100%">
+        <el-table 
+          :data="paginatedTableData" 
+          border 
+          style="width: 100%"
+          v-loading="loading"
+        >
           <el-table-column prop="secretType" label="Тип" sortable />
           <el-table-column prop="variableName" label="Имя переменной" sortable />
           <el-table-column prop="secretValue" label="Значение секрета" sortable />
@@ -34,6 +39,19 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <!-- Пагинация -->
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="tableData.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
 
       <div v-else-if="Array.isArray(result.items) && result.items.length === 0" class="no-secrets">
@@ -59,10 +77,13 @@ import axios from '../../node_modules/axios/dist/axios.min.js'
 
 const loading = ref(false)
 const result = ref(null)
+const currentPage = ref(1)
+const pageSize = ref(10)
 
 const sendText = async () => {
   loading.value = true
   result.value = null
+  currentPage.value = 1 // Сбрасываем на первую страницу при новом запросе
 
   try {
     const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {})
@@ -78,6 +99,7 @@ const sendText = async () => {
 
 const clearData = () => {
   result.value = null
+  currentPage.value = 1
 }
 
 const tableData = computed(() => {
@@ -95,6 +117,23 @@ const tableData = computed(() => {
     isActive: item.isActive || 'Не указано'
   }))
 })
+
+// Пагинированные данные
+const paginatedTableData = computed(() => {
+  const startIndex = (currentPage.value - 1) * pageSize.value
+  const endIndex = startIndex + pageSize.value
+  return tableData.value.slice(startIndex, endIndex)
+})
+
+// Обработчики изменения пагинации
+const handleSizeChange = (newSize) => {
+  pageSize.value = newSize
+  currentPage.value = 1 // Сбрасываем на первую страницу при изменении размера
+}
+
+const handleCurrentChange = (newPage) => {
+  currentPage.value = newPage
+}
 
 // Функция для получения типа тега активности
 const getActiveTagType = (isActive) => {
@@ -123,6 +162,12 @@ main {
 
 .results-section {
   margin-top: 20px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .secret-item {

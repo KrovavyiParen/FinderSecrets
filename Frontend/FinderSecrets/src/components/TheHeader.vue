@@ -1,7 +1,16 @@
 <template>
   <el-header class="main-header">
-    <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt">Поиск токена</el-button></RouterLink>
-    <RouterLink to="/history"> <el-button size="large" type="info" plain  round class="bt">История</el-button></RouterLink>
+    <h1>
+      Findler
+    </h1>
+    <div class="bt_in">
+      <RouterLink to="/"><el-button size="large" type="info" plain  round class="bt">Поиск токена</el-button></RouterLink>
+      <RouterLink to="/history"> <el-button size="large" type="info" plain  round class="bt">История</el-button></RouterLink>
+    </div>
+    <div class="bt_in">
+      <RouterLink to="/logun"> <el-button size="large" type="info" plain  round class="bt">Войти</el-button></RouterLink>
+      <RouterLink to="/registr"> <el-button size="large" type="info" plain  round class="bt">Регистрация</el-button></RouterLink>
+    </div>
   </el-header>
 </template>
 
@@ -13,10 +22,19 @@ import { RouterLink} from 'vue-router'
 
 <style scoped>
 
-.bt{
-    margin-left: 2%;
-    margin-right: 2%;
+h1{
+  color: black;
 }
+
+.bt_in{
+  display: flex;
+}
+
+.bt{
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
 
 .main-header {
   height: 100px;
@@ -24,6 +42,8 @@ import { RouterLink} from 'vue-router'
   border: 1px, solid , black;
   border-radius: 20px;
   color: white;
-}
+  display: flex;
+  justify-content: space-between;
+} 
 
 </style>
