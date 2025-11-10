@@ -68,6 +68,7 @@ namespace Backend.Controllers
         /// </summary>
         /// <remarks>
         /// Пример запроса:
+
         /// POST /api/SecretsFinder/scan-text
         /// {
         ///     "text": "password=secret123, api_key=AKIAIOSFODNN7EXAMPLE"
@@ -513,7 +514,7 @@ namespace Backend.Controllers
                     Statistics = new TokensStatisticsDto(),
                     Items = new List<TokenHistoryItemDto>(),
                     TotalCount = 0,
-                    GeneratedAt = DateTime.UtcNow
+                    GeneratedAt = DateTime.UtcNow.ToString()
                 });
             }
         }
@@ -529,7 +530,7 @@ namespace Backend.Controllers
                     Type = g.Key,
                     Category = "Secret",
                     Count = g.Count(),
-                    LastFound = g.Max(fs => fs.FirstFoundAt)
+                    LastFound = g.Max(fs => fs.FirstFoundAt).ToString("dd.MM.yyyy HH:mm:ss")
                 })
                 .ToListAsync();
 
@@ -550,7 +551,7 @@ namespace Backend.Controllers
                 },
                 Items = new List<TokenHistoryItemDto>(),
                 TotalCount = 0,
-                GeneratedAt = DateTime.UtcNow
+                GeneratedAt = DateTime.UtcNow.ToString("dd.MM.yyyy HH:mm:ss")
             });
         }
 
@@ -567,12 +568,12 @@ namespace Backend.Controllers
                     VariableName = fs.VariableName,
                     LineNumber = fs.LineNumber,
                     Position = fs.Position,
-                    FirstFoundAt = fs.FirstFoundAt,
-                    LastFoundAt = fs.LastFoundAt,
+                    FirstFoundAt = fs.FirstFoundAt.ToString("dd.MM.yyyy HH:mm:ss"),
+                    LastFoundAt = fs.LastFoundAt.ToString("dd.MM.yyyy HH:mm:ss"),
                     IsActive = fs.IsActive,
                     InputType = "Secret Scan",
                     InputPreview = $"Secret: {fs.SecretType}",
-                    ScanDate = fs.FirstFoundAt
+                    ScanDate = fs.FirstFoundAt.ToString("dd.MM.yyyy HH:mm:ss")
                 })
                 .ToListAsync();
 
@@ -591,7 +592,7 @@ namespace Backend.Controllers
                 },
                 Items = pagedItems,
                 TotalCount = totalCount,
-                GeneratedAt = DateTime.UtcNow
+                GeneratedAt = DateTime.UtcNow.ToString("dd.MM.yyyy HH:mm:ss")
             });
         }
 
@@ -607,7 +608,7 @@ namespace Backend.Controllers
             var healthCheck = new HealthCheckDto
             {
                 Status = "Healthy",
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTime.UtcNow.ToString("dd.MM.yyyy HH:mm:ss"),
                 Version = "1.0.0",
                 Services = new Dictionary<string, string>()
             };

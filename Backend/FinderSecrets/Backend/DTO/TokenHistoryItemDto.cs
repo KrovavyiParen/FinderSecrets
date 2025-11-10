@@ -9,11 +9,11 @@
         public string VariableName { get; set; } = string.Empty;
         public int LineNumber { get; set; }
         public int Position { get; set; }
-        public DateTime FirstFoundAt { get; set; }
-        public DateTime LastFoundAt { get; set; }
+        public string FirstFoundAt { get; set; } = string.Empty;
+        public string LastFoundAt { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public string InputType { get; set; } = string.Empty;
         public string InputPreview { get; set; } = string.Empty;
-        public DateTime ScanDate { get; set; }
+        public string ScanDate { get; set; } = string.Empty;
     }
 }
