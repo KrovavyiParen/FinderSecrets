@@ -119,6 +119,7 @@ namespace Backend.Controllers
                 string content = IsUrl ? await client.GetStringAsync(url) : request.Text;
 
                 var secrets = _secretsFinder.FindSecrets(content);
+
                 stopwatch.Stop();
                 var foundSecrets = secrets.Select(s => new FoundSecret
                 //Сохраняем найденные секреты в БД
@@ -131,7 +132,7 @@ namespace Backend.Controllers
                     Position = s.Position,
                     FirstFoundAt = DateTime.UtcNow,
                     LastFoundAt = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = s.IsActive
                 }).ToList();
 
                 await _databaseService.SaveFoundSecretsAsync(foundSecrets);
@@ -228,6 +229,7 @@ namespace Backend.Controllers
                 };
                 requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
                 var secrets = _secretsFinder.FindSecretsInFile(file);
+
                 stopwatch.Stop();
                 var foundSecrets = secrets.Select(s => new FoundSecret
                 {
@@ -239,7 +241,7 @@ namespace Backend.Controllers
                     Position = s.Position,
                     FirstFoundAt = DateTime.UtcNow,
                     LastFoundAt = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = s.IsActive
                 }).ToList();
                 await _databaseService.SaveFoundSecretsAsync(foundSecrets);
                 // Обновляем статистику сканирования
@@ -380,7 +382,7 @@ namespace Backend.Controllers
                     Position = s.Position,
                     FirstFoundAt = DateTime.UtcNow,
                     LastFoundAt = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = s.IsActive
                 }).ToList();
 
                 await _databaseService.SaveFoundSecretsAsync(foundSecrets);

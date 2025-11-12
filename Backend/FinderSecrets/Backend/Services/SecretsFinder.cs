@@ -68,16 +68,13 @@ namespace Backend.Services
                                 Value = match.Groups[2].Value,
                                 VariableName = match.Groups[1].Value.Trim(),
                                 LineNumber = i + 1,
-                                Position = match.Index
+                                Position = match.Index,
+                                IsActive = false
                             };
 
                             if (pattern.Name == "Telegram-Token")
                             {
                                 ValidateTelegramToken(secretMatch).GetAwaiter().GetResult();
-                            }
-                            else
-                            {
-                                secretMatch.IsActive = false;
                             }
 
                             matches.Add(secretMatch);
