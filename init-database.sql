@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP WITH TIME ZONE
+    password VARCHAR(255),
+    roles VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS scan_requests (
@@ -43,3 +44,8 @@ CREATE TABLE IF NOT EXISTS scan_history (
 INSERT INTO users (username, email, created_at) 
 VALUES ('default', 'default@example.com', CURRENT_TIMESTAMP)
 ON CONFLICT (username) DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS idx_found_secrets_type ON found_secrets(secret_type);
+CREATE INDEX IF NOT EXISTS idx_found_secrets_found_date ON found_secrets(first_found_at);
+CREATE INDEX IF NOT EXISTS idx_found_secrets_request_id ON found_secrets(request_id);
+CREATE INDEX IF NOT EXISTS idx_scan_requests_user_id ON scan_requests(user_id);
