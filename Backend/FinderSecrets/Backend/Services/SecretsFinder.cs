@@ -75,6 +75,10 @@ namespace Backend.Services
                             {
                                 ValidateTelegramToken(secretMatch).GetAwaiter().GetResult();
                             }
+                            else
+                            {
+                                secretMatch.IsActive = false;
+                            }
 
                             matches.Add(secretMatch);
                         }
