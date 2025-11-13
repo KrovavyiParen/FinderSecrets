@@ -1,16 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Mvc;
 using Backend.Services;
-using System.ComponentModel.DataAnnotations;
 using Backend.DTO;
-using System.Collections.Generic;
-using static Backend.Models.Model;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity.Data;
 namespace Backend.Controllers
 {
     /// <summary>
@@ -31,44 +26,36 @@ namespace Backend.Controllers
             _logger = logger;
             _databaseService = databaseService;
         }
-        private async Task<int> GetCurrentUserIdAsync()
+        private async Task<Guid> GetCurrentUserIdAsync()
         {
-            try
+            // Получаем email/username из claims
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
+                           ?? User.FindFirst("email")?.Value;
+
+            if (string.IsNullOrEmpty(userEmail))
             {
-                using var scope = HttpContext.RequestServices.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                var user = await context.Users.FirstOrDefaultAsync();
-                if (user != null)
-                {
-                    return user.Id;
-                }
-
-                //Если пользователей нет, создаем временного
-                var newUser = new User
-                {
-                    Username = "anonymous",
-                    Email = "anonymous@example.com",
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                context.Users.Add(newUser);
-                await context.SaveChangesAsync();
-                await Task.CompletedTask;
-                return 1;
+                throw new UnauthorizedAccessException("User not authenticated");
             }
-            catch (Exception ex)
+
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var user = await context.Users
+                .FirstOrDefaultAsync(u => u.Email == userEmail);
+
+            if (user == null)
             {
-                _logger.LogError(ex, "Error getting current user");
-                return 1; // fallback
+                throw new InvalidOperationException($"User with email {userEmail} not found");
             }
+
+            return user.Id;
         }
+
         /// <summary>
         /// Сканирование текста на наличие секретов
         /// </summary>
         /// <remarks>
         /// Пример запроса:
-
         /// POST /api/SecretsFinder/scan-text
         /// {
         ///     "text": "password=secret123, api_key=AKIAIOSFODNN7EXAMPLE"
@@ -246,7 +233,7 @@ namespace Backend.Controllers
                 await _databaseService.SaveFoundSecretsAsync(foundSecrets);
                 // Обновляем статистику сканирования
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
-                await SaveToScanHistory(1, "file", file.FileName, secrets.Count);
+                await SaveToScanHistory(userId, "file", file.FileName, secrets.Count);
 
 
 
@@ -422,6 +409,65 @@ namespace Backend.Controllers
             }
         }
 
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] DTO.RegisterRequest request)
+        {
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var _context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // Проверка валидации модели
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Проверка существования пользователя
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            {
+                return Conflict("Пользователь с таким email уже существует");
+            }
+
+            // Создание нового пользователя
+            var user = new User
+            {
+                Id = Guid.NewGuid(), // Генерация UUID
+                Username = request.Username,
+                Email = request.Email,
+                Password = BCrypt.Net.BCrypt.HashPassword(request.Password), // Хеширование пароля
+                CreatedAt = DateTime.UtcNow,
+                
+            };
+
+            // Сохранение в базу данных
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Регистрация успешна",
+                userId = user.Id
+            });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginRequest request)
+        {
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var _context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == request.Email);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            {
+                return Unauthorized("Invalid credentials");
+            }
+
+            // Генерируем токен
+            return Ok();
+        }
+
+
         /// <summary>
         /// Возвращает список поддерживаемых типов секретов для сканирования
         /// </summary>
@@ -473,7 +519,6 @@ namespace Backend.Controllers
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Только FoundSecrets - УБРАТЬ FoundTokens полностью
                 var secretsQuery = context.FoundSecrets
                     .Include(fs => fs.ScanRequest)
                     .Where(fs => fs.ScanRequest.UserId == userId);
@@ -649,7 +694,7 @@ namespace Backend.Controllers
             return $"{value.Substring(0, 4)}....{value.Substring(value.Length - 4)}";
 
         }
-        private async Task SaveToScanHistory(int userId, string inputType, string inputPreview, int secretsFound)
+        private async Task SaveToScanHistory(Guid userId, string inputType, string inputPreview, int secretsFound)
         {
             try
             {

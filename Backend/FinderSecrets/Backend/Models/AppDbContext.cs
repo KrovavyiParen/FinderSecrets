@@ -35,7 +35,7 @@ namespace Backend.Models
     {
         [Key]
         [Column("id")]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
         [Column("username")]
         public string Username { get; set; } = string.Empty;
