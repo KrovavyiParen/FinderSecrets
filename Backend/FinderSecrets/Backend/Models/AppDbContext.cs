@@ -46,8 +46,11 @@ namespace Backend.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [Column("last_login")]
-        public DateTime? LastLogin { get; set; }
+        [Column("password")]
+        public string Password {get; set; } = string.Empty;
+
+        [Column("roles")]
+        public string Roles {get; set; } = string.Empty;    
     }
 
     // Request models (separate from entity models)
