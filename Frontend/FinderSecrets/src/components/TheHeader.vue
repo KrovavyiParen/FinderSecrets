@@ -8,7 +8,7 @@
       <RouterLink to="/history"> <el-button size="large" type="info" plain  round class="bt">История</el-button></RouterLink>
     </div>
     <div class="bt_in">
-      <RouterLink to="/logun"> <el-button size="large" type="info" plain  round class="bt">Войти</el-button></RouterLink>
+      <RouterLink to="/login"> <el-button size="large" type="info" plain  round class="bt">Войти</el-button></RouterLink>
       <RouterLink to="/registr"> <el-button size="large" type="info" plain  round class="bt">Регистрация</el-button></RouterLink>
     </div>
   </el-header>

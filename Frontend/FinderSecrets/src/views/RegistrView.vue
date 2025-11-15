@@ -88,7 +88,7 @@
       </el-form>
 
       <div class="login-link">
-        Уже есть аккаунт? <a href="#" class="link">Войти</a>
+        Уже есть аккаунт? <RouterLink to="/login"><a href="#" class="link">Войти</a></RouterLink>
       </div>
     </div>
   </main>
@@ -97,6 +97,8 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { User, Message, Lock } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 // Реф для формы
 const registerFormRef = ref()
@@ -154,7 +156,47 @@ const registerRules = reactive({
 })
 
 // Отправка формы
+const submitForm = async (formEl) => {
+  if (!formEl) return
 
+  try {
+    // Валидация формы
+    await formEl.validate()
+    
+    loading.value = true
+
+    // Отправка данных на бэкенд
+    const response = await axios.post('http://localhost:5200/api/secretsfinder/register', {
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password
+    })
+
+    // Успешная регистрация
+    ElMessage.success('Регистрация прошла успешно!')
+    console.log('Ответ сервера:', response.data)
+    
+    // Здесь можно добавить редирект на страницу входа или другую страницу
+    // Например: router.push('/login')
+
+  } catch (error) {
+    // Обработка ошибок
+    if (error.response) {
+      // Ошибка от сервера
+      const errorMessage = error.response.data?.message || 'Произошла ошибка при регистрации'
+      ElMessage.error(errorMessage)
+    } else if (error.name === 'ValidationError') {
+      // Ошибка валидации формы (уже обрабатывается Element Plus)
+      console.log('Ошибка валидации формы')
+    } else {
+      // Другие ошибки (сеть и т.д.)
+      ElMessage.error('Ошибка сети или сервера')
+    }
+    console.error('Ошибка регистрации:', error)
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
