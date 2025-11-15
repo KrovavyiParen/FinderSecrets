@@ -32,7 +32,7 @@ namespace Backend.Services
         }
 
         // Получение истории сканирований
-        public async Task<List<ScanHistory>> GetScanHistoryAsync(int userId)
+        public async Task<List<ScanHistory>> GetScanHistoryAsync(Guid userId)
         {
             return await _context.ScanHistory
                 .Where(sh => sh.UserId == userId)
@@ -52,7 +52,7 @@ namespace Backend.Services
             }
         }
         // Получение статистики по пользователю
-        public async Task<UserStatisticsDto> GetUserStatisticsAsync(int userId)
+        public async Task<UserStatisticsDto> GetUserStatisticsAsync(Guid userId)
         {
             var totalScans = await _context.ScanHistory
                 .Where(sh => sh.UserId == userId)

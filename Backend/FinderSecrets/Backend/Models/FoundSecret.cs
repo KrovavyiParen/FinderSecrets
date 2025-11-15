@@ -12,7 +12,6 @@ public class FoundSecret
     [Column("request_id")]
     public int RequestId { get; set; }
 
-    // Навигационное свойство с явным указанием внешнего ключа
     [ForeignKey("RequestId")]
     public ScanRequestEntity ScanRequest { get; set; }
 

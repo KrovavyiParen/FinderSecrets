@@ -11,7 +11,7 @@ namespace Backend.Models
         public int Id { get; set; }
 
         [Column("user_id")]
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
 
         [Column("input_type")]
         [StringLength(20)]

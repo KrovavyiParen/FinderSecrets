@@ -8,7 +8,7 @@ namespace Backend.Models
     {
         [Key]
         [Column("id")]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
         [Column("username")]
         [StringLength(50)]
@@ -21,7 +21,7 @@ namespace Backend.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [Column("last_login")]
-        public DateTime? LastLogin { get; set; }
+        [Required]
+        public string Password { get; set; } = string.Empty;
     }
 }
