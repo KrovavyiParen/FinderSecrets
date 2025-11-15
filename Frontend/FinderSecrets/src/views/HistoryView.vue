@@ -101,8 +101,20 @@
             </template>
           </el-table-column>
           <el-table-column prop="lineNumber" label="Номер строки" sortable width="120" />
-          <el-table-column prop="firstFound" label="Впервые найден" sortable width="180" />
-          <el-table-column prop="lastFound" label="В последний раз найден" sortable width="180" />
+          <el-table-column prop="firstFound" label="Впервые найден" sortable width="180">
+            <template #default="scope">
+              <span :title="getFullDateTime(scope.row.firstFound)">
+                {{ formatDateTime(scope.row.firstFound) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="lastFound" label="В последний раз найден" sortable width="180">
+            <template #default="scope">
+              <span :title="getFullDateTime(scope.row.lastFound)">
+                {{ formatDateTime(scope.row.lastFound) }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column prop="isActive" label="Активен" sortable width="100">
             <template #header>
               <div class="column-header">
@@ -208,6 +220,62 @@ const handleSearch = () => {
 
 const handleFilterChange = () => {
   currentPage.value = 1
+}
+
+// Функции для форматирования дат
+const formatDateTime = (dateString) => {
+  if (!dateString || dateString === 'Не указано') {
+    return 'Не указано'
+  }
+
+  try {
+    const date = new Date(dateString)
+    
+    // Проверка валидности даты
+    if (isNaN(date.getTime())) {
+      return 'Неверный формат'
+    }
+
+    // Форматирование в локальное время пользователя
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    console.error('Ошибка форматирования даты:', error)
+    return 'Ошибка формата'
+  }
+}
+
+const getFullDateTime = (dateString) => {
+  if (!dateString || dateString === 'Не указано') {
+    return 'Не указано'
+  }
+
+  try {
+    const date = new Date(dateString)
+    
+    if (isNaN(date.getTime())) {
+      return 'Неверный формат даты'
+    }
+
+    // Полное форматирование для тултипа
+    return date.toLocaleDateString('ru-RU', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    })
+  } catch (error) {
+    return 'Ошибка формата даты'
+  }
 }
 
 // Основные данные таблицы
@@ -414,6 +482,11 @@ main {
 .truncated-text {
   cursor: help;
   border-bottom: 1px dotted #606266;
+}
+
+/* Стили для ячеек с датами */
+.el-table .cell {
+  white-space: nowrap;
 }
 
 /* Адаптивность для мобильных устройств */
