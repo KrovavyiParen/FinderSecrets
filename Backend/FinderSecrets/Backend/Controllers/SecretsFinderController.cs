@@ -6,6 +6,13 @@ using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity.Data;
+using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
+
 namespace Backend.Controllers
 {
     /// <summary>
@@ -19,9 +26,11 @@ namespace Backend.Controllers
         private readonly ISecretsFinder _secretsFinder;
         private readonly ILogger<SecretsFinderController> _logger;
         private readonly DatabaseService _databaseService;
+        private readonly IConfiguration _configuration;
 
-        public SecretsFinderController(ISecretsFinder secretsFinder, ILogger<SecretsFinderController> logger, DatabaseService databaseService)
+        public SecretsFinderController(IConfiguration configuration, ISecretsFinder secretsFinder, ILogger<SecretsFinderController> logger, DatabaseService databaseService)
         {
+            _configuration = configuration;
             _secretsFinder = secretsFinder;
             _logger = logger;
             _databaseService = databaseService;
@@ -49,6 +58,31 @@ namespace Backend.Controllers
             }
 
             return user.Id;
+        }
+
+        [Authorize]
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var _context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == Guid.Parse(userId));
+        
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+    
+            return Ok(new {
+                id = user.Id,
+                email = user.Email,
+                username = user.Username,
+                createdAt = user.CreatedAt
+            });
         }
 
         /// <summary>
@@ -462,11 +496,63 @@ namespace Backend.Controllers
             {
                 return Unauthorized("Invalid credentials");
             }
+            
+            // генерерация JWT token
+            var token = GenerateJwtToken(user);
 
-            // Генерируем токен
-            return Ok();
+            // генерерация refresh token
+            var refreshToken = GenerateRefreshToken();
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                token = token,
+                refreshToken = refreshToken,
+                user = new
+                {
+                    id = user.Id,
+                    email = user.Email,
+                    username = user.Username
+                }
+            });
+
         }
 
+        private string GenerateJwtToken(User user)
+        {
+            var jwtKey = _configuration["Jwt:Key"];
+            var jwtIssuer = _configuration["Jwt:Issuer"];
+            var jwtAudience = _configuration["Jwt:Audience"];
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.Now.AddHours(3),
+                signingCredentials: creds);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
+        }
 
         /// <summary>
         /// Возвращает список поддерживаемых типов секретов для сканирования
