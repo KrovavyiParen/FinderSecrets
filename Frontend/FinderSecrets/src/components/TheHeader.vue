@@ -1,36 +1,31 @@
 <template>
-  <header class="header">
-    <div class="header-content">
-      <div class="logo">
-        <RouterLink to="/">Secrets Finder</RouterLink>
-      </div>
-      <nav class="nav">
-        <RouterLink to="/" class="nav-link">Главная</RouterLink>
-        <RouterLink to="/history" class="nav-link">История</RouterLink>
-        
-        <!-- Кнопки входа/регистрации - показываем только когда НЕ авторизован -->
-        <div v-if="!isAuthenticated" class="auth-buttons">
-          <RouterLink to="/login">
-            <el-button type="primary" size="small">Вход</el-button>
-          </RouterLink>
-          <RouterLink to="/registr">
-            <el-button size="small">Регистрация</el-button>
-          </RouterLink>
-        </div>
-        
-        <!-- Информация пользователя и кнопка выхода - показываем только когда авторизован -->
-        <div v-else class="user-section">
-          <span class="user-email">{{ userEmail }}</span>
-          <el-button @click="logout" type="danger" size="small" plain>Выйти</el-button>
-        </div>
-      </nav>
+  <el-header class="main-header">
+    <h1>
+      Findler
+    </h1>
+    <div class="bt_in">
+      <RouterLink to="/"><el-button size="large" type="info" plain round class="bt">Поиск токена</el-button></RouterLink>
+      <RouterLink to="/history"><el-button size="large" type="info" plain round class="bt">История</el-button></RouterLink>
     </div>
-  </header>
+    <div class="bt_in">
+      <!-- Кнопки входа/регистрации - показываем только когда НЕ авторизован -->
+      <div v-if="!isAuthenticated">
+        <RouterLink to="/login"><el-button size="large" type="info" plain round class="bt">Войти</el-button></RouterLink>
+        <RouterLink to="/registr"><el-button size="large" type="info" plain round class="bt">Регистрация</el-button></RouterLink>
+      </div>
+      
+      <!-- Информация пользователя и кнопка выхода - показываем только когда авторизован -->
+      <div v-else class="user-section">
+        <span class="user-email">{{ userEmail }}</span>
+        <el-button @click="logout" size="large" type="danger" plain round class="bt">Выйти</el-button>
+      </div>
+    </div>
+  </el-header>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -89,57 +84,30 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.header {
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 0 20px;
-  border-bottom: 1px solid #e4e7ed;
+h1 {
+  color: black;
 }
 
-.header-content {
+.bt_in {
+  display: flex;
+  align-items: center;
+}
+
+.bt {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.main-header {
+  height: 100px;
+  width: 100%;
+  border: 1px solid black;
+  border-radius: 20px;
+  color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 60px;
-}
-
-.logo a {
-  font-size: 24px;
-  font-weight: bold;
-  color: #409EFF;
-  text-decoration: none;
-}
-
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.nav-link {
-  text-decoration: none;
-  color: #606266;
-  padding: 8px 16px;
-  border-radius: 4px;
-  transition: all 0.3s;
-}
-
-.nav-link:hover {
-  color: #409EFF;
-  background: #ecf5ff;
-}
-
-.nav-link.router-link-active {
-  color: #409EFF;
-  background: #ecf5ff;
-}
-
-.auth-buttons {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  padding: 0 20px;
 }
 
 .user-section {
@@ -151,10 +119,6 @@ onUnmounted(() => {
 .user-email {
   color: #606266;
   font-size: 14px;
-}
-
-/* Убираем подчеркивание у ссылок с кнопками */
-.auth-buttons a {
-  text-decoration: none;
+  font-weight: 500;
 }
 </style>
