@@ -62,7 +62,7 @@ const logout = () => {
   
   ElMessage.success('Вы успешно вышли из системы')
   checkAuth() // Обновляем состояние
-  router.push('/')
+  router.push('/login')
 }
 
 // Слушаем кастомные события для обновления состояния

@@ -179,6 +179,9 @@ const searchQuery = ref('')
 const activeFilter = ref('all')
 const typeFilter = ref('')
 
+// Определяем локаль пользователя
+const userLocale = ref(navigator.language || 'ru-RU')
+
 const getHistory = async () => {
   loading.value = true
   result.value = null
@@ -296,32 +299,67 @@ const handleFilterChange = () => {
   currentPage.value = 1
 }
 
-// Функции для форматирования дат
+// Функции для форматирования дат с учетом локали пользователя
+const parseServerDate = (dateString) => {
+  if (!dateString || dateString === 'Не указано') {
+    return null
+  }
+
+  try {
+    // Парсим формат "18.11.2025 00:08:27" с сервера
+    const [datePart, timePart] = dateString.split(' ')
+    
+    if (!datePart || !timePart) {
+      return null
+    }
+
+    const [day, month, year] = datePart.split('.')
+    const [hours, minutes, seconds] = timePart.split(':')
+
+    // Создаем Date объект (месяцы в JavaScript от 0 до 11)
+    // Указываем UTC чтобы избежать смещений временных зон
+    const date = new Date(Date.UTC(
+      parseInt(year),
+      parseInt(month) - 1, // месяц от 0 до 11
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes),
+      parseInt(seconds)
+    ))
+    
+    // Проверка валидности
+    if (isNaN(date.getTime())) {
+      console.warn('Невалидная дата после парсинга:', dateString)
+      return null
+    }
+
+    return date
+  } catch (error) {
+    console.error('Ошибка парсинга даты:', error, 'Исходная строка:', dateString)
+    return null
+  }
+}
+
 const formatDateTime = (dateString) => {
   if (!dateString || dateString === 'Не указано') {
     return 'Не указано'
   }
 
-  try {
-    const date = new Date(dateString)
-    
-    // Проверка валидности даты
-    if (isNaN(date.getTime())) {
-      return 'Неверный формат'
-    }
-
-    // Форматирование в локальное время пользователя
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch (error) {
-    console.error('Ошибка форматирования даты:', error)
-    return 'Ошибка формата'
+  const date = parseServerDate(dateString)
+  
+  if (!date) {
+    // Если не удалось распарсить, возвращаем оригинальную строку
+    return dateString
   }
+
+  // Форматирование в локаль пользователя
+  return date.toLocaleDateString(userLocale.value, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 const getFullDateTime = (dateString) => {
@@ -329,27 +367,62 @@ const getFullDateTime = (dateString) => {
     return 'Не указано'
   }
 
-  try {
-    const date = new Date(dateString)
-    
-    if (isNaN(date.getTime())) {
-      return 'Неверный формат даты'
-    }
-
-    // Полное форматирование для тултипа
-    return date.toLocaleDateString('ru-RU', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      timeZoneName: 'short'
-    })
-  } catch (error) {
-    return 'Ошибка формата даты'
+  const date = parseServerDate(dateString)
+  
+  if (!date) {
+    return dateString
   }
+
+  // Полное форматирование для тултипа в локали пользователя
+  const dateTimeFormat = new Intl.DateTimeFormat(userLocale.value, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short'
+  })
+  
+  return dateTimeFormat.format(date)
+}
+
+// Дополнительные функции для разных форматов отображения
+const getShortDate = (dateString) => {
+  if (!dateString || dateString === 'Не указано') {
+    return 'Не указано'
+  }
+
+  const date = parseServerDate(dateString)
+  
+  if (!date) {
+    return dateString.split(' ')[0] // только дата из оригинальной строки
+  }
+
+  return date.toLocaleDateString(userLocale.value, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+const getTimeOnly = (dateString) => {
+  if (!dateString || dateString === 'Не указано') {
+    return 'Не указано'
+  }
+
+  const date = parseServerDate(dateString)
+  
+  if (!date) {
+    const timePart = dateString.split(' ')[1]
+    return timePart || dateString
+  }
+
+  return date.toLocaleTimeString(userLocale.value, {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // Основные данные таблицы
@@ -464,10 +537,9 @@ const truncateText = (text, maxLength) => {
   return text.substring(0, maxLength) + '...'
 }
 
-// Автоматическая загрузка истории при входе на страницу (опционально)
+// Автоматическая загрузка истории при входе на страницу
 onMounted(() => {
-  // Можно раскомментировать если хотите автоматическую загрузку
-  // getHistory()
+  getHistory()
 })
 </script>
 
