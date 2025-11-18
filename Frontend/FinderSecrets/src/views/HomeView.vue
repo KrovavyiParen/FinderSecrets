@@ -145,7 +145,7 @@
 <script setup>
 import { ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
-import axios from '../../node_modules/axios/dist/axios.min.js'
+import api from '@/utils/api'
 
 const inputMode = ref('text')
 const textarea = ref('')
@@ -199,7 +199,7 @@ const sendText = async () => {
   result.value = null
 
   try {
-      const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-text', {
+      const response = await api.post('/secretsfinder/scan-text', {
       text: textarea.value
     })
       result.value = response.data  
@@ -224,7 +224,7 @@ const sendFile = async () => {
   try {
     const formData = new FormData()
     formData.append('file', currentFile.value)
-    const response = await axios.post('http://localhost:5200/api/secretsfinder/scan-file', formData,
+    const response = await api.post('/secretsfinder/scan-file', formData,
     {
       headers: {
         'Content-Type': 'multipart/form-data'  // ← ВАЖНО!

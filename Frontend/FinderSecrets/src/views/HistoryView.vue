@@ -1,8 +1,8 @@
 <template>
   <main>
     <div>
-      <el-button size="large" type="primary" :loading="loading" @click="sendText">          
-        {{ loading ? 'Сканируем' : 'Найти историю' }}
+      <el-button size="large" type="primary" :loading="loading" @click="getHistory">          
+        {{ loading ? 'Загружаем' : 'Найти историю' }}
       </el-button>
       <el-button size="large" @click="clearData" :disabled="loading">
         Очистить
@@ -165,8 +165,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from '../../node_modules/axios/dist/axios.min.js'
+import axios from 'axios'
 import { Search, Filter } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
 const result = ref(null)
@@ -178,16 +179,89 @@ const searchQuery = ref('')
 const activeFilter = ref('all')
 const typeFilter = ref('')
 
-const sendText = async () => {
+const getHistory = async () => {
   loading.value = true
   result.value = null
   currentPage.value = 1
   clearAllFilters()
 
   try {
-    const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {})
+    // Получаем токен из localStorage/sessionStorage
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+    
+    if (!token) {
+      ElMessage.error('Требуется авторизация')
+      return
+    }
+
+    const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
     result.value = response.data
+    ElMessage.success('История загружена успешно')
+    
   } catch (error) {
+    console.error('Ошибка при загрузке истории:', error)
+    
+    if (error.response?.status === 401) {
+      ElMessage.error('Неавторизованный доступ. Пожалуйста, войдите снова.')
+      // Очищаем токен и перенаправляем на логин
+      localStorage.removeItem('authToken')
+      sessionStorage.removeItem('authToken')
+      window.location.href = '/login'
+    } else if (error.response?.status === 405) {
+      ElMessage.error('Метод не разрешен. Пожалуйста, проверьте endpoint.')
+      result.value = { 
+        error: 'Неправильный метод запроса. Endpoint может требовать POST вместо GET.' 
+      }
+    } else if (error.response?.status === 404) {
+      ElMessage.error('Endpoint не найден')
+      result.value = { 
+        error: 'Endpoint /api/secretsfinder/tokens-history не найден' 
+      }
+    } else {
+      result.value = { 
+        error: error.response?.data?.message || error.message || 'Неизвестная ошибка'
+      }
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// Альтернативный метод - попробуем POST если GET не работает
+const getHistoryPost = async () => {
+  loading.value = true
+  result.value = null
+
+  try {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+    
+    if (!token) {
+      ElMessage.error('Требуется авторизация')
+      return
+    }
+
+    // Пробуем POST запрос
+    const response = await axios.post('http://localhost:5200/api/secretsfinder/tokens-history', 
+      {}, // пустое тело
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    
+    result.value = response.data
+    ElMessage.success('История загружена успешно')
+    
+  } catch (error) {
+    console.error('Ошибка при загрузке истории (POST):', error)
     result.value = { 
       error: error.response?.data?.message || error.message 
     }
@@ -289,8 +363,8 @@ const tableData = computed(() => {
     variableName: item.variableName || 'Не указано',
     secretValue: item.secretValue || 'Не указано',
     lineNumber: item.lineNumber || 'Не указано',
-    firstFound: item.firstFoundAt || 'Не указано',
-    lastFound: item.lastFoundAt || 'Не указано',
+    firstFound: item.firstFoundAt || item.firstFound || 'Не указано',
+    lastFound: item.lastFoundAt || item.lastFound || 'Не указано',
     isActive: item.isActive || 'Не указано',
     // Добавляем исходные данные для фильтрации
     _original: item
@@ -389,6 +463,12 @@ const truncateText = (text, maxLength) => {
   if (!text || text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
+
+// Автоматическая загрузка истории при входе на страницу (опционально)
+onMounted(() => {
+  // Можно раскомментировать если хотите автоматическую загрузку
+  // getHistory()
+})
 </script>
 
 <style scoped>

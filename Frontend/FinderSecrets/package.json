@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "pinia": "^2.1.7",
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.12.2",
     "element-plus": "^2.11.7",

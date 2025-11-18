@@ -11,11 +11,13 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/history',
       name: 'history',
       component: History,
+      meta: { requiresAuth: true }
     },
     {
       path: '/login',
@@ -28,6 +30,19 @@ const router = createRouter({
       component: Registr,
     },
   ],
+})
+
+// Функция проверки аутентификации
+const isAuthenticated = () => {
+  return !!localStorage.getItem('authToken') || !!sessionStorage.getItem('authToken')
+}
+
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAuth && !isAuthenticated()) {
+    next('/login')
+  } else {
+    next()
+  }
 })
 
 export default router

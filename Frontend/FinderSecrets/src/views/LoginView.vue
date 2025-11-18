@@ -157,7 +157,10 @@ const submitForm = async (formEl) => {
       localStorage.setItem('userData', JSON.stringify(response.data.user))
     }
 
-    // Редирект на главную страницу или dashboard
+    // Отправляем кастомное событие для обновления хедера
+    window.dispatchEvent(new CustomEvent('auth-update'))
+    
+    // Редирект на главную страницу
     router.push('/')
     
   } catch (error) {

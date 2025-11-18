@@ -99,6 +99,10 @@ import { ref, reactive } from 'vue'
 import { User, Message, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
+
+// Роутер для навигации
+const router = useRouter()
 
 // Реф для формы
 const registerFormRef = ref()
@@ -176,8 +180,10 @@ const submitForm = async (formEl) => {
     ElMessage.success('Регистрация прошла успешно!')
     console.log('Ответ сервера:', response.data)
     
-    // Здесь можно добавить редирект на страницу входа или другую страницу
-    // Например: router.push('/login')
+    // Редирект на страницу входа после успешной регистрации
+    setTimeout(() => {
+      router.push('/login')
+    }, 1500)
 
   } catch (error) {
     // Обработка ошибок
