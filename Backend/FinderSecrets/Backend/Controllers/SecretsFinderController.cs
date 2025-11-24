@@ -443,6 +443,22 @@ namespace Backend.Controllers
             }
         }
 
+        /// <summary>
+        /// Регистрация нового пользователя в системе
+        /// </summary>
+        /// <remarks>
+        /// Создает новую учетную запись пользователя с предоставленными данными:
+        /// - Проверяет уникальность email и username
+        /// - Хэширует пароль перед сохранением
+        /// - Создает запись пользователя в базе данных
+        /// - Возвращает токены авторизации
+        /// </remarks>
+        /// <param name="request">Объект запроса с данными для регистрации</param>
+        /// <returns>Данные пользователя и токены авторизации</returns>
+        /// <response code="201">Пользователь успешно зарегистрирован</response>
+        /// <response code="400">Некорректные данные или пользователь уже существует</response>
+        /// <response code="422">Ошибка валидации входных данных</response>
+        /// <response code="500">Внутренняя ошибка сервера при создании пользователя</response>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] DTO.RegisterRequest request)
         {
@@ -482,7 +498,23 @@ namespace Backend.Controllers
                 userId = user.Id
             });
         }
-
+        /// <summary>
+        /// Авторизация пользователя в системе
+        /// </summary>
+        /// <remarks>
+        /// Выполняет вход пользователя в систему с проверкой учетных данных:
+        /// - Проверяет существование пользователя по email
+        /// - Верифицирует пароль с использованием BCrypt
+        /// - Генерирует JWT токен доступа
+        /// - Создает refresh токен для обновления сессии
+        /// - Возвращает токены и базовую информацию о пользователе
+        /// </remarks>
+        /// <param name="request">Объект запроса с учетными данными</param>
+        /// <returns>Данные пользователя и токены авторизации</returns>
+        /// <response code="200">Успешная аутентификация</response>
+        /// <response code="400">Некорректный формат запроса</response>
+        /// <response code="401">Неверные учетные данные</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
