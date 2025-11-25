@@ -39,9 +39,17 @@ namespace Backend.Services
 
             _patterns = new List<Pattern>
             {
-                new("API-Key", @"\b([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,45})['""]?"),
+                new("Viber/Skype-Bot-Token", @"([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,50})(?![a-zA-Z0-9])['""]?"),
                 new("Telegram-Token", @"([a-zA-Z0-9_]+)\s*[=:]\s*['""]?(\d{8,10}:[\w_-]{35})['""]?"),
                 new("JSON-Key-Value", @"""([a-zA-Z0-9_]+)""\s*[=:]\s*""([a-zA-Z0-9]{32,45})"""),
+                new("WhatsApp-Business-API-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(EAA[BDF][a-zA-Z0-9]{100,})['""]?"),
+                new("Discord-Bot-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?([a-zA-Z0-9]{24}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27})['""]?"),
+                new("Facebook-User-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?((?:EAAD|EAAB)[a-zA-Z0-9]{211})['""]?"),
+                new("Facebook-App-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?((?:EAAD|EAAB)[a-zA-Z0-9]{36})['""]?"),
+                new("Zoom-Access-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(eyJ[a-zA-Z0-9]{100,150})['""]?"),
+                new("Slack-Bot-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(xoxb-[a-zA-Z0-9]{12}-[a-zA-Z0-9]{13}-[a-zA-Z0-9]{24})['""]?"),
+                new("Slack-User-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(xoxp-[a-zA-Z0-9]{12}-[a-zA-Z0-9]{13}-[a-zA-Z0-9]{24})['""]?"),
+                new("Slack-WorkspaceApp-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(xapp-\d-[a-zA-Z0-9]{9,10}-[a-zA-Z0-9]{13}-[a-zA-Z0-9]{24})['""]?"),
             };
         }
 
