@@ -41,7 +41,7 @@ namespace Backend.Services
             {
                 new("Viber/Skype-Bot-Token", @"([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,50})(?![a-zA-Z0-9])['""]?"),
                 new("Telegram-Token", @"([a-zA-Z0-9_]+)\s*[=:]\s*['""]?(\d{8,10}:[\w_-]{35})['""]?"),
-                new("JSON-Key-Value", @"""([a-zA-Z0-9_]+)""\s*[=:]\s*""([a-zA-Z0-9]{32,45})"""),
+                new("JSON-Key-Value", @"""([a-zA-Z0-9_]+)""\s*[=:]\s*""([a-zA-Z0-9]{32,50})"""),
                 new("WhatsApp-Business-API-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(EAA[BDF][a-zA-Z0-9]{100,})['""]?"),
                 new("Discord-Bot-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?([a-zA-Z0-9]{24}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27})['""]?"),
                 new("Facebook-User-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?((?:EAAD|EAAB)[a-zA-Z0-9]{211})['""]?"),
