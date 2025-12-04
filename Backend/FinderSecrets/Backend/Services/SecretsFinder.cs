@@ -39,7 +39,7 @@ namespace Backend.Services
 
             _patterns = new List<Pattern>
             {
-                new("Viber/Skype-Bot-Token", @"([a-zA-Z0-9_]*?)\s*[=:]\s*['""]?([a-zA-Z0-9]{32,50})(?![a-zA-Z0-9])['""]?"),
+                new("Viber/Skype-Bot-Token", @"([a-zA-Z0-9_]*?)?\s*[=:]\s*([a-zA-Z0-9]{32,50})(?![a-zA-Z0-9])"),
                 new("Telegram-Token", @"([a-zA-Z0-9_]+)\s*[=:]\s*['""]?(\d{8,10}:[\w_-]{35})['""]?"),
                 new("JSON-Key-Value", @"""([a-zA-Z0-9_]+)""\s*[=:]\s*""([a-zA-Z0-9]{32,50})"""),
                 new("WhatsApp-Business-API-Token", @"['""]?([a-zA-Z0-9_]+)['""]?\s*[=:]\s*['""]?(EAA[BDF][a-zA-Z0-9]{100,})['""]?"),
