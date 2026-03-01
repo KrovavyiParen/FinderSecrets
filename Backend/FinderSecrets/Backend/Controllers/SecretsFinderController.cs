@@ -1,17 +1,18 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Backend.Services;
-using Backend.DTO;
+﻿using Backend.DTO;
 using Backend.Models;
-using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Identity.Data;
-using System.Security.Cryptography;
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.Extensions.Configuration;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System.Diagnostics;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using static Backend.Models.Model;
 
 namespace Backend.Controllers
 {
@@ -108,6 +109,7 @@ namespace Backend.Controllers
         {
             var stopwatch = Stopwatch.StartNew();
             int requestId = 0;
+            int sessionId;
             bool IsUrl = false;
             string url = "";
             try
@@ -124,6 +126,10 @@ namespace Backend.Controllers
                 try { url = UrlValidate(request.Text, out IsUrl); }
                 catch (Exception x)
                 { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.Text }); }
+                if (IsUrl)
+                {
+                    sessionId = await _secretsFinder.StartScanAsync(url, 2, 1);
+                }
                 //Сохраняем запрос в БД
                 var userId = await GetCurrentUserIdAsync();
                 var scanRequest = new ScanRequestEntity
@@ -193,6 +199,56 @@ namespace Backend.Controllers
             }
         }
 
+        [HttpPost("start-scan")]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScanResultDto>> StartScan([FromBody] ScanTextRequestDto request)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            int requestId = 0;
+            int sessionId;
+            bool IsUrl = false;
+            string url = "";
+            var domains = new List<string>();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Text))
+                {
+                    return BadRequest(new ScanResultDto
+                    { 
+                        Error = "Text is required",
+                        FileName = "text-input"
+                    });
+                }
+
+                try { url = UrlValidate(request.Text, out IsUrl); }
+                catch (Exception x)
+                { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.Text }); }
+                if (IsUrl)
+                {
+                    sessionId = await _secretsFinder.StartScanAsync(url,2,1);
+                    await _secretsFinder.WaitForScanCompletionAndFetchDataAsync(url, sessionId);
+                    domains = await _secretsFinder.GetDomainsAsync(url, sessionId);
+                }
+
+                
+
+                stopwatch.Stop();
+
+
+                return Ok(domains);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, IsUrl ? $"Error scanning file: {url}" : "Error scanning text");
+                return StatusCode(500, new ScanResultDto
+                {
+                    Error = ex.Message,
+                    FileName = url ?? "unknown"
+                });
+            }
+        }
 
         /// <summary>
         /// Сканирование файла на наличие секретов
