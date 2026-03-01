@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:5200/api',
+  baseURL: 'http://195.209.218.52:5200/api',
 })
 
 // Добавляем токен к каждому запросу
