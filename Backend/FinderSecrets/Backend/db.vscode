@@ -1,5 +1,5 @@
 {
-    "postgresql.defaultDatabase": "findersecret",
-    "postgresql.defaultHost": "localhost",
-    "postgresql.defaultUsername": "postgres"
+  "postgresql.defaultDatabase": "findersecret",
+  "postgresql.defaultHost": "http://195.209.218.52:5200",
+  "postgresql.defaultUsername": "postgres"
 }
