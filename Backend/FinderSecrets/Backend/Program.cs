@@ -24,7 +24,7 @@ namespace Backend
             builder.Services.AddEndpointsApiExplorer();
             // Добавляем DbContext
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseNpgsql(builder.Configuration.GetConnectionString("http://195.209.218.52:5200/")));
 
             // Регистрируем сервисы
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
