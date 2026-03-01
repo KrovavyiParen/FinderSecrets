@@ -197,7 +197,7 @@ const getHistory = async () => {
       return
     }
 
-    const response = await axios.get('http://localhost:5200/api/secretsfinder/tokens-history', {
+    const response = await axios.get('http://195.209.218.52:5200/api/secretsfinder/tokens-history', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -250,7 +250,7 @@ const getHistoryPost = async () => {
     }
 
     // Пробуем POST запрос
-    const response = await axios.post('http://localhost:5200/api/secretsfinder/tokens-history', 
+    const response = await axios.post('http://195.209.218.52:5200/api/secretsfinder/tokens-history', 
       {}, // пустое тело
       {
         headers: {

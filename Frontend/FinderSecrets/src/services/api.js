@@ -3,7 +3,7 @@ import axios from 'axios';
 //экземпляр axios с базовыми настройками
 
 const apiClient = axios.create({
-    baseURL: process.env.VUE_APP_API_URL || 'https://localhost:5200/api',
+    baseURL: process.env.VUE_APP_API_URL || 'http://195.209.218.52:5200/api',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
