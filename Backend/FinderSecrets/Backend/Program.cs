@@ -24,7 +24,7 @@ namespace Backend
             builder.Services.AddEndpointsApiExplorer();
             // Добавляем DbContext
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("http://195.209.218.52:5200/")));
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Регистрируем сервисы
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
@@ -56,7 +56,7 @@ namespace Backend
             {
                 options.AddPolicy("FrontendPolicy", policy =>
                 {
-                    policy.WithOrigins("http://195.209.218.52:3000", "http://195.209.218.52:3000")
+                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials();
