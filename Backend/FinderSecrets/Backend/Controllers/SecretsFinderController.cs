@@ -199,6 +199,21 @@ namespace Backend.Controllers
             }
         }
 
+        /// <summary>
+        /// Запуск сканирования доменов и поиска секретов на сайтах
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// POST /api/SecretsFinder/start-scan
+        /// {
+        ///     "text": "https://example.com"
+        /// }
+        /// </remarks>
+        /// <param name="request">Объект запроса с текстом/URL для сканирования</param>
+        /// <returns>Результаты сканирования всех найденных доменов</returns>
+        /// <response code="200">Успешное сканирование</response>
+        /// <response code="400">Неверный запрос</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpPost("start-scan")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -211,6 +226,7 @@ namespace Backend.Controllers
             bool IsUrl = false;
             string url = "";
             var domains = new List<string>();
+            var scanResults = new List<DomainScanResult>();
             try
             {
                 if (string.IsNullOrWhiteSpace(request.Text))
@@ -231,13 +247,160 @@ namespace Backend.Controllers
                     await _secretsFinder.WaitForScanCompletionAndFetchDataAsync(url, sessionId);
                     domains = await _secretsFinder.GetDomainsAsync(url, sessionId);
                 }
-
-                
+                Guid userId = Guid.Empty;
+                try
+                {
+                    userId = await GetCurrentUserIdAsync();
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    _logger.LogWarning("User not authenticated for scan");
+                }
+                if (userId != Guid.Empty)
+                {
+                    var scanRequest = new ScanRequestEntity
+                    {
+                        UserId = userId,
+                        InputType = IsUrl ? "url" : "text",
+                        InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
+                        SecretsCount = 0,
+                        ScanDuration = 0,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                }
+                _logger.LogInformation("Starting secrets scan for {Count} domains", domains.Count);
+                var secretsFound = 0;
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+                foreach (var domain in domains)
+                {
+                    try
+                    {
+                        _logger.LogDebug("Scanning domain: {Domain}", domain);
+                        var domainUrl = domain.StartsWith("http") ? domain : $"https://{domain}";
+                        var content = await httpClient.GetStringAsync(domainUrl);
+                        var domainSecrets = _secretsFinder.FindSecrets(content);
+                        if (domainSecrets.Any())
+                        {
+                            _logger.LogInformation("Found {Count} secrets in domain: {Domain}", domainSecrets.Count(), domain);
+                            if (requestId > 0)
+                            {
+                                var foundSecrets = domainSecrets.Select(s => new FoundSecret
+                                {
+                                    RequestId = requestId,
+                                    SecretType = s.Type,
+                                    SecretValue = s.Value,
+                                    VariableName = s.VariableName,
+                                    LineNumber = s.LineNumber,
+                                    Position = s.Position,
+                                    FirstFoundAt = DateTime.UtcNow,
+                                    LastFoundAt = DateTime.UtcNow,
+                                    IsActive = s.IsActive,
+                                    SourceUrl = domainUrl,
+                                    Domain = domain,
+                                    HttpStatusCode = 200
+                                }).ToList();
+                                await _databaseService.SaveFoundSecretsAsync(foundSecrets);
+                            }
+                            scanResults.Add(new DomainScanResult
+                            {
+                                Domain = domain,
+                                Url = domainUrl,
+                                SecretsFound = domainSecrets.Count(),
+                                Secrets = domainSecrets.Select(s => new SecretSummaryDto
+                                {
+                                    Type = s.Type,
+                                    Value = MaskSensitiveValue(s.Value),
+                                    VariableName = s.VariableName,
+                                    IsActive = s.IsActive
+                                }).ToList(),
+                                ScanStatus = "Success",
+                                ScanTime = DateTime.UtcNow
+                            });
+                            secretsFound += domainSecrets.Count();
+                        }
+                        else
+                        {
+                            scanResults.Add(new DomainScanResult
+                            {
+                                Domain = domain,
+                                Url = domainUrl,
+                                SecretsFound = 0,
+                                Secrets = new List<SecretSummaryDto>(),
+                                ScanStatus = "Success",
+                                ScanTime = DateTime.UtcNow
+                            });
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to access domain: {Domain}", domain);
+                        scanResults.Add(new DomainScanResult
+                        {
+                            Domain = domain,
+                            Url = domain,
+                            SecretsFound = 0,
+                            ScanStatus = "Failed",
+                            ErrorMessage = $"HTTP error: {ex.Message}",
+                            ScanTime = DateTime.UtcNow
+                        });
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        _logger.LogWarning("Timeout scanning domain: {Domain}", domain);
+                        scanResults.Add(new DomainScanResult
+                        {
+                            Domain = domain,
+                            Url = domain,
+                            SecretsFound = 0,
+                            ScanStatus = "Timeout",
+                            ErrorMessage = "Request timed out",
+                            ScanTime = DateTime.UtcNow
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error scanning domain: {Domain}", domain);
+                        scanResults.Add(new DomainScanResult
+                        {
+                            Domain = domain,
+                            Url = domain,
+                            SecretsFound = 0,
+                            ScanStatus = "Error",
+                            ErrorMessage = ex.Message,
+                            ScanTime = DateTime.UtcNow
+                        });
+                    }
+                }
+                  
 
                 stopwatch.Stop();
-
-
-                return Ok(domains);
+                if (requestId > 0)
+                {
+                    await _databaseService.UpdateScanStatisticsAsync(requestId, secretsFound, (int)stopwatch.ElapsedMilliseconds);
+                    await SaveToScanHistory(userId, "domain_scan", $"Scanned {domains.Count} domains", secretsFound);
+                }
+                _logger.LogInformation("Domain scan completed. Scanned {Total} domains, found {Secrets} secrets in {Elapsed}ms", 
+                    domains.Count, secretsFound, stopwatch.ElapsedMilliseconds);
+                return Ok(new DomainScanResultDto
+                {
+                    SourceUrl = url,
+                    TotalDomainsScanned = domains.Count,
+                    TotalSecretsFound = secretsFound,
+                    ScanDurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Results = scanResults,
+                    Summary = new ScanSummaryDto
+                    {
+                        DomainsWithSecrets = scanResults.Count(r => r.SecretsFound > 0),
+                        DomainsWithoutSecrets = scanResults.Count(r => r.SecretsFound == 0 && r.ScanStatus == "Success"),
+                        SecretTypesSummary = scanResults
+                            .Where(r => r.Secrets != null)
+                            .SelectMany(r => r.Secrets)
+                            .GroupBy(s => s.Type)
+                            .ToDictionary(g => g.Key, g => g.Count())
+                    }
+                });
             }
             catch (Exception ex)
             {

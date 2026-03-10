@@ -39,4 +39,15 @@ public class FoundSecret
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
+
+    [Column("source_url")]
+    [StringLength(500)]
+    public string? SourceUrl { get; set; }
+
+    [Column("domain")]
+    [StringLength(255)]
+    public string? Domain { get; set; }
+
+    [Column("http_status_code")]
+    public int? HttpStatusCode { get; set; }
 }
