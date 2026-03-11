@@ -59,13 +59,6 @@
     </div>
 
     <div v-if="inputMode === 'text'">
-      <div class="input-mode-selector">
-        <el-radio-group v-model="depth" size="large">
-          <el-radio-button label="1">1</el-radio-button>
-          <el-radio-button label="2">2</el-radio-button>
-          <el-radio-button label="3">3</el-radio-button>
-        </el-radio-group>
-      </div>
       <el-button size="large" type="primary" :loading="loading" @click="sendText">          
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
@@ -155,7 +148,6 @@ import { UploadFilled } from '@element-plus/icons-vue'
 import api from '@/utils/api'
 
 const inputMode = ref('text')
-const depth = ref('1')
 const textarea = ref('')
 const url = ref('')
 const fileList = ref([])
