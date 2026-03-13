@@ -371,17 +371,17 @@ namespace Backend.Controllers
                 catch (Exception x)
                 { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
                 //Сохраняем запрос в БД
-                var userId = await GetCurrentUserIdAsync();
-                var scanRequest = new ScanRequestEntity
-                {
-                    UserId = userId,
-                    InputType = "url",
-                    InputData = $"URL: {request.url}",
-                    SecretsCount = 0,
-                    ScanDuration = 0,
-                    CreatedAt = DateTime.UtcNow
-                };
-                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                //var userId = await GetCurrentUserIdAsync();
+                //var scanRequest = new ScanRequestEntity
+                //{
+                //UserId = userId,
+                //InputType = "url",
+                //InputData = $"URL: {request.url}",
+                //SecretsCount = 0,
+                //ScanDuration = 0,
+                //CreatedAt = DateTime.UtcNow
+                //};
+                //requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
                 var client = new HttpClient();
                 string content = await client.GetStringAsync(url);
 
@@ -406,7 +406,7 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
 
                 // Сохраняем в историю сканирований
-                await SaveToScanHistory(userId, "url", request.url, secrets.Count);
+                //await SaveToScanHistory(userId, "url", request.url, secrets.Count);
 
 
                 return Ok(new ScanResultDto
