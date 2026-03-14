@@ -215,10 +215,10 @@ namespace Backend.Controllers
         /// <response code="400">Неверный запрос</response>
         /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpPost("start-scan")]
-        [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(DomainScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ScanResultDto>> StartScan([FromBody] ScanTextRequestDto request)
+        public async Task<ActionResult<DomainScanResultDto>> StartScan([FromBody] ScanTextRequestDto request)
         {
             var stopwatch = Stopwatch.StartNew();
             int requestId = 0;
@@ -576,6 +576,7 @@ namespace Backend.Controllers
         /// <response code="400">Некорректный URL или ошибка валидации</response>
         /// <response code="413">Превышен максимальный размер файла</response>
         /// <response code="500">Внутренняя ошибка сервера при обработке запроса</response>
+        [Authorize]
         [HttpPost("scan-url")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -595,8 +596,9 @@ namespace Backend.Controllers
                 try { url = UrlValidate(request.url, out bool IsUrl); }
                 catch (Exception x)
                 { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
-                //Сохраняем запрос в БД
                 var userId = await GetCurrentUserIdAsync();
+
+                //Сохраняем запрос в БД
                 var scanRequest = new ScanRequestEntity
                 {
                     UserId = userId,
@@ -607,6 +609,7 @@ namespace Backend.Controllers
                     CreatedAt = DateTime.UtcNow
                 };
                 requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+            
                 var client = new HttpClient();
                 string content = await client.GetStringAsync(url);
 

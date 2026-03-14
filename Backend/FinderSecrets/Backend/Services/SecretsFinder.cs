@@ -205,7 +205,7 @@ namespace Backend.Services
             try
             {
                 var url = "http://195.209.218.225:8000/api/domains/scan/";
-                var requestData = new
+                var requestData = new 
                 {
                     domain = domain,
                     domain_depth = domainDepth,
@@ -213,31 +213,53 @@ namespace Backend.Services
                 };
 
                 var json = JsonSerializer.Serialize(requestData);
+                _logger.LogInformation($"Отправка запроса на {url} с данными: {json}");
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-
+                
                 var response = await _httpClient.PostAsync(url, content);
-
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation($"Сырой ответ: {responseContent}");
+                _logger.LogInformation($"Код статуса ответа: {response.StatusCode}");
                 if (response.IsSuccessStatusCode)
                 {
-                    var jsonResponse = await response.Content.ReadAsStringAsync();
-                    using var document = JsonDocument.Parse(jsonResponse);
-
-                    if (document.RootElement.TryGetProperty("session_id", out var sessionIdElement))
+                    if (string.IsNullOrWhiteSpace(responseContent))
                     {
-                        int sessionId = sessionIdElement.GetInt32();
-                        _logger.LogInformation($"Сканирование запущено, session_id: {sessionId}");
-                        return sessionId;
+                        _logger.LogError("Пустой ответ от сервера");
+                        return -1;
                     }
-                    else
+                    
+                    try
                     {
-                        _logger.LogError("Не удалось найти session_id в ответе");
+                        using var document = JsonDocument.Parse(responseContent);
+
+                        if (document.RootElement.TryGetProperty("session_id", out var sessionIdElement))
+                        {
+                            int sessionId = sessionIdElement.GetInt32();
+                            _logger.LogInformation($"Сканирование запущено, session_id: {sessionId}");
+                            return sessionId;
+                        }
+                        else if (document.RootElement.TryGetProperty("id", out var idElement))
+                        {
+                            int sessionId = idElement.GetInt32();
+                            _logger.LogInformation($"Сканирование запущено, id: {sessionId}");
+                            return sessionId;
+                        }
+                        else
+                        {
+                            _logger.LogError("Не удалось найти session_id или id в ответе");
+                            _logger.LogError($"Доступные поля: {string.Join(", ", document.RootElement.EnumerateObject().Select(p => p.Name))}");
+                            return -1;
+                        }
+                    }   
+                    catch (JsonException jsonEx)
+                    {
+                        _logger.LogError(jsonEx, $"Невалидный JSON ответ: {responseContent}");
                         return -1;
                     }
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    _logger.LogError($"Ошибка при запуске сканирования: {response.StatusCode} - {error}");
+                    _logger.LogError($"Ошибка при запуске сканирования: {response.StatusCode} - {responseContent}");
                     return -1;
                 }
             }
@@ -259,43 +281,53 @@ namespace Backend.Services
                 {
                     var url = $"http://195.209.218.225:8000/api/domains/session/{sessionId}";
                     var response = await _httpClient.GetAsync(url);
+                    var responseContent = await response.Content.ReadAsStringAsync();
 
                     if (response.IsSuccessStatusCode)
                     {
-                        var jsonResponse = await response.Content.ReadAsStringAsync();
-                        using var document = JsonDocument.Parse(jsonResponse);
+                        //var jsonResponse = await response.Content.ReadAsStringAsync();
+                        //using var document = JsonDocument.Parse(jsonResponse);
+                        using var document = JsonDocument.Parse(responseContent);
 
-                        var status = document.RootElement.GetProperty("status").GetString();
-                        _logger.LogInformation($"Статус сессии {sessionId}: {status}");
-
-                        switch (status)
+                        //var status = document.RootElement.GetProperty("status").GetString();
+                        //_logger.LogInformation($"Статус сессии {sessionId}: {status}");
+                        if (document.RootElement.TryGetProperty("status", out var statusElement))
                         {
-                            case "running":
-                                // Ждём перед следующей проверкой
-                                await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
-                                break;
+                            var status = statusElement.GetString();
+                            _logger.LogInformation($"Статус сессии {sessionId}: {status}");
+                            switch (status)
+                            {
+                                case "running":
+                                    // Ждём перед следующей проверкой
+                                    await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
+                                    break;
 
-                            case "completed":
-                                completed = true;
-                                // Сканирование завершено — получаем данные
-                                await GetDomainsAsync(domain, sessionId);
-                                break;
+                                case "completed":
+                                    completed = true;
+                                    // Сканирование завершено — получаем данные
+                                    await GetDomainsAsync(domain, sessionId);
+                                    break;
 
-                            case "failed":
-                                _logger.LogError($"Сканирование сессии {sessionId} завершилось с ошибкой");
-                                completed = true;
-                                break;
+                                case "failed":
+                                    _logger.LogError($"Сканирование сессии {sessionId} завершилось с ошибкой");
+                                    completed = true;
+                                    break;
 
-                            default:
-                                _logger.LogWarning($"Неизвестный статус: {status}");
-                                await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
-                                break;
+                                default:
+                                    _logger.LogWarning($"Неизвестный статус: {status}");
+                                    await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"Ответ не содержит поля status. Полный ответ: {responseContent}");
+                            await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
                         }
                     }
                     else
                     {
-                        var error = await response.Content.ReadAsStringAsync();
-                        _logger.LogError($"Ошибка получения статуса сессии {sessionId}: {response.StatusCode} - {error}");
+                        _logger.LogError($"Ошибка получения статуса сессии {sessionId}: {response.StatusCode} - {responseContent}");
                         await Task.Delay(TimeSpan.FromSeconds(pollIntervalSeconds));
                     }
                 }

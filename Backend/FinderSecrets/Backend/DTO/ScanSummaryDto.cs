@@ -7,7 +7,6 @@ namespace Backend.DTO
     {
         public int DomainsWithSecrets { get; set; }
         public int DomainsWithoutSecrets { get; set; }
-        public int FailedDomains { get; set; }
-        public Dictionary<string, int> SecretTypesSummary { get; set; }
+        public Dictionary<string, int> SecretTypesSummary { get; set; } = new Dictionary<string, int>();
     }
 }
