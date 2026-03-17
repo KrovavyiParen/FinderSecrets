@@ -170,7 +170,7 @@ const submitForm = async (formEl) => {
     loading.value = true
 
     // Отправка данных на бэкенд
-    const response = await axios.post('http://localhost:5200/api/secretsfinder/register', {
+    const response = await axios.post('http://195.209.218.52:5200/api/secretsfinder/register', {
       username: registerForm.username,
       email: registerForm.email,
       password: registerForm.password
