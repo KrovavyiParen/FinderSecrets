@@ -131,17 +131,17 @@ namespace Backend.Controllers
                     sessionId = await _secretsFinder.StartScanAsync(url, 2, 1);
                 }
                 //Сохраняем запрос в БД
-                var userId = await GetCurrentUserIdAsync();
-                var scanRequest = new ScanRequestEntity
-                {
-                    UserId = userId,
-                    InputType = IsUrl ? "url" : "text",
-                    InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
-                    SecretsCount = 0,
-                    ScanDuration = 0,
-                    CreatedAt = DateTime.UtcNow
-                };
-                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                //var userId = await GetCurrentUserIdAsync();
+                //var scanRequest = new ScanRequestEntity
+                //{
+                //UserId = userId,
+                //InputType = IsUrl ? "url" : "text",
+                //InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
+                //SecretsCount = 0,
+                //ScanDuration = 0,
+                //CreatedAt = DateTime.UtcNow
+                //};
+                // requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
                 var client = new HttpClient();
                 string content = IsUrl ? await client.GetStringAsync(url) : request.Text;
 
@@ -168,7 +168,7 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
 
                 // Сохраняем в историю сканирований
-                await SaveToScanHistory(userId, IsUrl ? "url" : "text",request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
+                //await SaveToScanHistory(userId, IsUrl ? "url" : "text",request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
 
 
                 return Ok(new ScanResultDto
@@ -245,7 +245,7 @@ namespace Backend.Controllers
                 {
                     sessionId = await _secretsFinder.StartScanAsync(url,2,1);
                     await _secretsFinder.WaitForScanCompletionAndFetchDataAsync(url, sessionId);
-                    domains = await _secretsFinder.GetDomainsAsync(url, sessionId);
+                    domains = await _secretsFinder.GetDomainsAsync(url);
                 }
                 Guid userId = Guid.Empty;
                 try
@@ -596,20 +596,20 @@ namespace Backend.Controllers
                 try { url = UrlValidate(request.url, out bool IsUrl); }
                 catch (Exception x)
                 { return BadRequest(new ScanResultDto { Error = x.Message, FileName = request.url }); }
-                var userId = await GetCurrentUserIdAsync();
+                //var userId = await GetCurrentUserIdAsync();
 
                 //Сохраняем запрос в БД
-                var scanRequest = new ScanRequestEntity
-                {
-                    UserId = userId,
-                    InputType = "url",
-                    InputData = $"URL: {request.url}",
-                    SecretsCount = 0,
-                    ScanDuration = 0,
-                    CreatedAt = DateTime.UtcNow
-                };
-                requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
-            
+                //var scanRequest = new ScanRequestEntity
+                //{
+                //UserId = userId,
+                //InputType = "url",
+                //InputData = $"URL: {request.url}",
+                //SecretsCount = 0,
+                //ScanDuration = 0,
+                //CreatedAt = DateTime.UtcNow
+                //};
+                //requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+
                 var client = new HttpClient();
                 string content = await client.GetStringAsync(url);
 
@@ -634,7 +634,7 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
 
                 // Сохраняем в историю сканирований
-                await SaveToScanHistory(userId, "url", request.url, secrets.Count);
+                //await SaveToScanHistory(userId, "url", request.url, secrets.Count);
 
 
                 return Ok(new ScanResultDto

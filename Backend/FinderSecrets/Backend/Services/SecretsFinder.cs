@@ -23,7 +23,7 @@ namespace Backend.Services
         Task SaveSecretsToDatabaseAsync(List<SecretMatch> secrets, string source = "text");
         Task<int> StartScanAsync(string domain, int domainDepth, int masscanDepth);
         Task WaitForScanCompletionAndFetchDataAsync(string domain, int sessionId);
-        Task<List<string>> GetDomainsAsync(string domain, int sessionId);
+        Task<List<string>> GetDomainsAsync(string domain);
     }
     
     public class SecretsFinder : ISecretsFinder
@@ -285,12 +285,8 @@ namespace Backend.Services
 
                     if (response.IsSuccessStatusCode)
                     {
-                        //var jsonResponse = await response.Content.ReadAsStringAsync();
-                        //using var document = JsonDocument.Parse(jsonResponse);
                         using var document = JsonDocument.Parse(responseContent);
 
-                        //var status = document.RootElement.GetProperty("status").GetString();
-                        //_logger.LogInformation($"Статус сессии {sessionId}: {status}");
                         if (document.RootElement.TryGetProperty("status", out var statusElement))
                         {
                             var status = statusElement.GetString();
@@ -305,7 +301,6 @@ namespace Backend.Services
                                 case "completed":
                                     completed = true;
                                     // Сканирование завершено — получаем данные
-                                    await GetDomainsAsync(domain, sessionId);
                                     break;
 
                                 case "failed":
@@ -339,12 +334,12 @@ namespace Backend.Services
             }
         }
 
-        public async Task<List<string>> GetDomainsAsync(string domain, int sessionId)
+        public async Task<List<string>> GetDomainsAsync(string domain)
         {
             var domains = new List<string>();
             try
             {
-                var url = $"http://195.209.218.225:8000/api/links/domain/?domain={domain}&session_id={sessionId}&public_only=true";
+                var url = $"http://195.209.218.225:8000/api/catalog/root-domains/resolve?root={domain}&min_masscan_depth=1";
                 var response = await _httpClient.GetAsync(url);
 
                 if (response.IsSuccessStatusCode)
@@ -353,30 +348,38 @@ namespace Backend.Services
                     using var document = JsonDocument.Parse(jsonResponse);
                     var root = document.RootElement;
 
-                    // Проверяем, есть ли свойство "nodes" и является ли оно массивом
-                    if (root.TryGetProperty("nodes", out var nodesElement) && nodesElement.ValueKind == JsonValueKind.Array)
+                    // Извлекаем поддомены из export.domains
+                    if (root.TryGetProperty("export", out var exportElement) &&
+                        exportElement.TryGetProperty("domains", out var domainsElement))
                     {
-                        foreach (var node in nodesElement.EnumerateArray())
+                        foreach (var subdomain in domainsElement.EnumerateArray())
                         {
-                            // Проверяем наличие "type" и "label"
-                            if (node.TryGetProperty("type", out var typeElement) &&
-                                typeElement.GetString() == "domain" &&
-                                node.TryGetProperty("label", out var labelElement))
+                            if (subdomain.TryGetProperty("domain", out var subdomainsElement))
                             {
-                                var domainName = labelElement.GetString();
+                                var domainName = subdomainsElement.GetString();
                                 if (!string.IsNullOrEmpty(domainName))
                                 {
                                     domains.Add(domainName);
                                 }
                             }
                         }
-
-                        _logger.LogInformation($"Найдено {domains.Count} доменов в графе.");
                     }
                     else
                     {
-                        _logger.LogWarning("Ответ не содержит массива nodes или он пуст.");
+                        _logger.LogWarning("Ответ не содержит ожидаемой структуры export.domains.");
                     }
+
+                    // Добавляем корневой домен, если он присутствует и ещё не добавлен
+                    if (root.TryGetProperty("root", out var rootElement))
+                    {
+                        var rootDomain = rootElement.GetString();
+                        if (!string.IsNullOrEmpty(rootDomain) && !domains.Contains(rootDomain))
+                        {
+                            domains.Insert(0, rootDomain); // ставим корневой домен первым
+                        }
+                    }
+
+                    _logger.LogInformation($"Найдено {domains.Count} доменов (включая корневой).");
                 }
                 else
                 {
