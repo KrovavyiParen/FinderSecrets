@@ -131,17 +131,17 @@ namespace Backend.Controllers
                     sessionId = await _secretsFinder.StartScanAsync(url, 2, 1);
                 }
                 //Сохраняем запрос в БД
-                //var userId = await GetCurrentUserIdAsync();
-                //var scanRequest = new ScanRequestEntity
-                //{
-                //UserId = userId,
-                //InputType = IsUrl ? "url" : "text",
-                //InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
-                //SecretsCount = 0,
-                //ScanDuration = 0,
-                //CreatedAt = DateTime.UtcNow
-                //};
-                // requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
+                var userId = await GetCurrentUserIdAsync();
+                var scanRequest = new ScanRequestEntity
+                {
+                    UserId = userId,
+                    InputType = IsUrl ? "url" : "text",
+                    InputData = IsUrl ? $"URL: {request.Text}" : (request.Text.Length > 1000 ? request.Text.Substring(0, 1000) + "..." : request.Text),
+                    SecretsCount = 0,
+                    ScanDuration = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                 requestId = await _databaseService.SaveScanRequestAsync(scanRequest);
                 var client = new HttpClient();
                 string content = IsUrl ? await client.GetStringAsync(url) : request.Text;
 
@@ -168,7 +168,7 @@ namespace Backend.Controllers
                 await _databaseService.UpdateScanStatisticsAsync(requestId, secrets.Count, (int)stopwatch.ElapsedMilliseconds);
 
                 // Сохраняем в историю сканирований
-                //await SaveToScanHistory(userId, IsUrl ? "url" : "text",request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
+                await SaveToScanHistory(userId, IsUrl ? "url" : "text",request.Text.Length > 500 ? request.Text.Substring(0, 500) + "..." : request.Text, secrets.Count);
 
 
                 return Ok(new ScanResultDto
