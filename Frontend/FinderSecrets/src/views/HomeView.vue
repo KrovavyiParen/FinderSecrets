@@ -35,7 +35,7 @@
     >
       <el-icon class="el-icon--upload"><upload-filled /></el-icon>
       <div class="el-upload__text">
-        Перетащите файл сюда или <em>нажмите для загрузки</em>
+        Перетащите файл сюда или <em> нажмите для загрузки</em>
       </div>
       <template #tip>
         <div class="el-upload__tip">
@@ -199,7 +199,7 @@ const sendText = async () => {
   result.value = null
 
   try {
-      const response = await api.post('/secretsfinder/scan-text', {
+      const response = await api.post('/secretsfinder/start-scan', {
       text: textarea.value
 
     })

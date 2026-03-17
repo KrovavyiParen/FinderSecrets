@@ -12,7 +12,7 @@ import router from './router'
 const app = createApp(App)
 const pinia = createPinia()
 
-app.use(pinia) // Добавьте эту строку ПЕРЕД router
+app.use(pinia) 
 app.use(ElementPlus)
 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
