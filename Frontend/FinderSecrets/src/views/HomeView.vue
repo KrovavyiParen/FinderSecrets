@@ -199,7 +199,7 @@ const sendText = async () => {
   result.value = null
 
   try {
-      const response = await api.post('/secretsfinder/start-scan', {
+      const response = await api.post('/secretsfinder/scan-text', {
       text: textarea.value
 
     })
