@@ -1,5 +1,3 @@
-<!----------------Начало страницы !-->
-
 <template>
   <main>
     <!-- Переключатель между текстом и ссылкой -->
@@ -23,43 +21,43 @@
 
     <div v-else class="input-section">
       <el-upload
-      class="upload-demo"
-      drag
-      action="#"
-      :auto-upload="false"
-      :on-change="handleFileChange"
-      :on-remove="handleFileRemove"
-      :file-list="fileList"
-      :limit="1"
-      accept=".txt,.log,.json,.xml,.yaml,.yml,.config,.conf,.ini,.env,.properties,.sql,.csv,.tsv,.key,.pem,.ppk,.pub,.cer,.crt,.der,.p12,.pfx,.p7b,.p7c"
-    >
-      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-      <div class="el-upload__text">
-        Перетащите файл сюда или <em> нажмите для загрузки</em>
-      </div>
-      <template #tip>
-        <div class="el-upload__tip">
-          Поддерживаемые форматы: текстовые файлы, конфиги, ключи (txt, log, json, xml, yaml, env, key, pem и др.)
+        class="upload-demo"
+        drag
+        action="#"
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :on-remove="handleFileRemove"
+        :file-list="fileList"
+        :limit="1"
+        accept=".txt,.log,.json,.xml,.yaml,.yml,.config,.conf,.ini,.env,.properties,.sql,.csv,.tsv,.key,.pem,.ppk,.pub,.cer,.crt,.der,.p12,.pfx,.p7b,.p7c"
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          Перетащите файл сюда или <em> нажмите для загрузки</em>
         </div>
-      </template>
-    </el-upload>
+        <template #tip>
+          <div class="el-upload__tip">
+            Поддерживаемые форматы: текстовые файлы, конфиги, ключи (txt, log, json, xml, yaml, env, key, pem и др.)
+          </div>
+        </template>
+      </el-upload>
 
-    <!-- Показываем содержимое выбранного файла -->
-    <div v-if="fileContent && !loading" class="file-preview">
-      <h4>Предпросмотр содержимого файла:</h4>
-      <el-input
-        v-model="fileContent"
-        type="textarea"
-        readonly
-        placeholder="Содержимое файла появится здесь"
-        class="file-content-preview"
-        :rows="6"
-      />
-    </div>
+      <!-- Показываем содержимое выбранного файла -->
+      <div v-if="fileContent && !loading" class="file-preview">
+        <h4>Предпросмотр содержимого файла:</h4>
+        <el-input
+          v-model="fileContent"
+          type="textarea"
+          readonly
+          placeholder="Содержимое файла появится здесь"
+          class="file-content-preview"
+          :rows="6"
+        />
+      </div>
     </div>
 
-    <div v-if="inputMode === 'text'">
-      <el-button size="large" type="primary" :loading="loading" @click="sendText">          
+    <div>
+      <el-button size="large" type="primary" :loading="loading" @click="sendRequest">
         {{ loading ? 'Сканируем' : 'Найти секреты' }}
       </el-button>
       <el-button size="large" @click="clearData" :disabled="loading">
@@ -67,118 +65,115 @@
       </el-button>
     </div>
 
-    <div v-else>
-      <el-button size="large" type="primary" :loading="loading" @click="sendFile">          
-        {{ loading ? 'Сканируем' : 'Найти секреты' }}
-      </el-button>
-      <el-button size="large" @click="clearData" :disabled="loading">
-        Очистить
-      </el-button>
-    </div>
-
+    <!-- Блок результатов -->
     <div v-if="result" class="results-section">
-      <h3>Результаты сканирования:</h3>
-      
-      <div v-if="Array.isArray(result.secrets) && result.secrets.length > 0" class="secrets-found">
-        <div class="stats">
-          <el-alert title="Внимание!" type="warning" show-icon>
-            Найдено потенциальных секретов: {{ result.secrets.length }}
-          </el-alert>
-        </div>
-        
-        <div v-for="(secret, index) in result.secrets" :key="index" class="secret-item">
-          <div class="secret-header">
-            <el-tag type="danger">{{ secret.type }}</el-tag>
-            <span class="location">Строка {{ secret.lineNumber }}, позиция {{ secret.position }}</span>
-          </div>
-          <div class="secret-value">
-            <code>{{ secret.variableName }}</code>
-          </div>
-          <div class="secret-value">
-            <code>{{ secret.value }}</code>
-          </div>
-          <div v-if="secret.type === 'Telegram-Token'" class="secret-value">
-            <span>
-              Актив:
-            </span>
-            <code>
-              {{ secret.isActive }}
-            </code>
-            <span>
-              Имя бота:
-            </span>
-            <code>
-              {{ secret.botName }}
-            </code>
-            <span>
-              Username:
-            </span>
-            <code>
-              {{ secret.botUsername }}
-            </code>
-          </div>
-        </div>
-      </div>
-
-      <div v-else-if="Array.isArray(result.secrets) && result.secrets.length === 0" class="no-secrets">
-        <el-alert title="Отлично!" type="success" show-icon>
-          Секреты не найдены
-        </el-alert>
-      </div>
-
-      <div v-else-if="typeof result === 'string'" class="error-result">
-        <el-alert :title="result" type="error" show-icon />
-      </div>
-
-      <div v-else-if="result.error" class="error-result">
+      <!-- Ошибка глобальная -->
+      <div v-if="result.error" class="error-result">
         <el-alert :title="'Ошибка: ' + result.error" type="error" show-icon />
+      </div>
+
+      <!-- Успешные результаты -->
+      <div v-else-if="result.results">
+        <!-- Сводка -->
+        <div class="summary">
+          <el-descriptions :column="3" border>
+            <el-descriptions-item label="Источник">{{ result.sourceUrl || 'Не указан' }}</el-descriptions-item>
+            <el-descriptions-item label="Всего доменов">{{ result.totalDomainsScanned || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="Всего секретов">{{ result.totalSecretsFound || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="Время сканирования">{{ result.scanDurationMs ? `${result.scanDurationMs} мс` : '—' }}</el-descriptions-item>
+            <el-descriptions-item v-if="result.summary" label="Домены с секретами">{{ result.summary.domainsWithSecrets || 0 }}</el-descriptions-item>
+            <el-descriptions-item v-if="result.summary" label="Домены без секретов">{{ result.summary.domainsWithoutSecrets || 0 }}</el-descriptions-item>
+          </el-descriptions>
+
+          <!-- Типы секретов (сводка) -->
+          <div v-if="result.summary && Object.keys(result.summary.secretTypesSummary).length" class="summary-types">
+            <h4>Распределение по типам:</h4>
+            <el-space wrap>
+              <el-tag v-for="(count, type) in result.summary.secretTypesSummary" :key="type">
+                {{ type }}: {{ count }}
+              </el-tag>
+            </el-space>
+          </div>
+        </div>
+
+        <!-- Результаты по доменам -->
+        <div v-if="result.results.length" class="domains-list">
+          <div v-for="(domainResult, idx) in result.results" :key="idx" class="domain-card">
+            <div class="domain-header">
+              <div>
+                <el-link :href="domainResult.url" target="_blank" type="primary">{{ domainResult.domain || domainResult.url }}</el-link>
+                <el-tag :type="domainResult.scanStatus === 'Success' ? 'success' : 'danger'" size="small" class="status-tag">
+                  {{ domainResult.scanStatus }}
+                </el-tag>
+              </div>
+              <div class="domain-meta">
+                <span>Найдено секретов: {{ domainResult.secretsFound }}</span>
+                <span v-if="domainResult.scanTime">Сканировано: {{ formatDate(domainResult.scanTime) }}</span>
+              </div>
+            </div>
+
+            <!-- Ошибка при сканировании домена -->
+            <div v-if="domainResult.errorMessage" class="domain-error">
+              <el-alert :title="domainResult.errorMessage" type="warning" show-icon :closable="false" />
+            </div>
+
+            <!-- Секреты домена -->
+            <div v-if="domainResult.secrets && domainResult.secrets.length" class="secrets-list">
+              <div v-for="(secret, sIdx) in domainResult.secrets" :key="sIdx" class="secret-item">
+                <div class="secret-header">
+                  <el-tag type="danger">{{ secret.type }}</el-tag>
+                  <el-tag v-if="secret.isActive === true" type="success" size="small">Активен</el-tag>
+                  <el-tag v-else-if="secret.isActive === false" type="info" size="small">Неактивен</el-tag>
+                </div>
+                <div class="secret-value">
+                  <div><strong>Переменная:</strong> <code>{{ secret.variableName || '—' }}</code></div>
+                  <div><strong>Значение:</strong> <code>{{ secret.value }}</code></div>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="domainResult.scanStatus === 'Success'" class="no-secrets">
+              <el-alert title="Секреты не найдены" type="success" show-icon :closable="false" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Если results пустой, но общее количество секретов 0 -->
+        <div v-else-if="result.totalSecretsFound === 0" class="no-secrets">
+          <el-alert title="Секреты не найдены" type="success" show-icon />
+        </div>
       </div>
     </div>
   </main>
 </template>
 
-<!----------------Конец страницы !-->
-
-<!----------------Начало скрипта !-->
-
-
 <script setup>
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import api from '@/utils/api'
 
 const inputMode = ref('text')
 const textarea = ref('')
-const url = ref('')
 const fileList = ref([])
 const fileContent = ref('')
 const currentFile = ref(null)
 const loading = ref(false)
 const result = ref(null)
 
-
 const handleFileChange = (file) => {
   currentFile.value = file.raw
-  
   const reader = new FileReader()
   reader.onload = (e) => {
-    try {
-      fileContent.value = e.target.result
-      result.value = null // Сбрасываем предыдущие результаты
-    } catch (error) {
-      fileContent.value = ''
-      ElMessage.error('Ошибка чтения файла')
-    }
+    fileContent.value = e.target.result
+    result.value = null
   }
-reader.onerror = () => {
-    ElMessage.error('Ошибка при чтении файла')
+  reader.onerror = () => {
+    ElMessage.error('Ошибка чтения файла')
     fileContent.value = ''
   }
-  
   reader.readAsText(file.raw)
 }
 
-// Обработчик удаления файла
 const handleFileRemove = () => {
   fileContent.value = ''
   currentFile.value = null
@@ -186,84 +181,52 @@ const handleFileRemove = () => {
   fileList.value = []
 }
 
-
-
-const sendText = async () => {
-
+const sendRequest = async () => {
   if (inputMode.value === 'text' && !textarea.value.trim()) {
     ElMessage.warning('Пожалуйста, введите текст или ссылку для проверки')
     return
   }
-
-  loading.value = true
-  result.value = null
-
-  try {
-      const response = await api.post('/secretsfinder/scan-text', {
-      text: textarea.value
-
-    })
-      result.value = response.data  
-  } catch (error) {
-    result.value = { 
-      error: error.response?.data?.message || error.message 
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-const sendFile = async () => {
-  if (!fileContent.value) {
+  if (inputMode.value === 'file' && !fileContent.value) {
     ElMessage.warning('Сначала выберите файл')
     return
   }
-  
+
   loading.value = true
   result.value = null
 
   try {
-    const formData = new FormData()
-    formData.append('file', currentFile.value)
-    const response = await api.post('/secretsfinder/scan-file', formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data'  // ← ВАЖНО!
-      }
-    })
+    let response
+    if (inputMode.value === 'text') {
+      response = await api.post('/secretsfinder/start-scan', { text: textarea.value })
+    } else {
+      const formData = new FormData()
+      formData.append('file', currentFile.value)
+      response = await api.post('/secretsfinder/scan-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+    }
     result.value = response.data
-    
   } catch (error) {
-    if (error.response) {
-        console.log('Status:', error.response.status);
-        console.log('Headers:', error.response.headers);
-        console.log('Data:', error.response.data); // Здесь должна быть детальная ошибка от сервера
-    }
-    result.value = { 
-      error: error.response?.data?.message || error.message 
-    }
+    result.value = { error: error.response?.data?.message || error.message }
   } finally {
     loading.value = false
   }
 }
 
-
 const clearData = () => {
   textarea.value = ''
-  url.value = ''
   fileList.value = []
   fileContent.value = ''
   currentFile.value = null
   result.value = null
-
 }
 
+const formatDate = (isoString) => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  return date.toLocaleString()
+}
 </script>
-
-<!----------------Конец скрипта !-->
-
-
-<!----------------Начало стилей CSS !-->
 
 <style scoped>
 .upload-demo {
@@ -279,14 +242,6 @@ const clearData = () => {
 
 .file-preview {
   margin: 20px 0;
-}
-
-.file-info {
-  margin-bottom: 15px;
-}
-
-.file-info .el-tag {
-  margin-right: 10px;
 }
 
 .in {
@@ -308,43 +263,93 @@ main {
   margin-top: 20px;
 }
 
+.summary {
+  margin-bottom: 20px;
+}
+
+.summary-types {
+  margin-top: 10px;
+}
+
+.domains-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.domain-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fafafa;
+}
+
+.domain-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.domain-meta {
+  font-size: 0.85em;
+  color: #606266;
+  display: flex;
+  gap: 15px;
+}
+
+.status-tag {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.domain-error {
+  margin: 12px 0;
+}
+
+.secrets-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .secret-item {
-  background: #fef0f0;
+  background: #fff;
   border: 1px solid #fcd3d3;
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 12px;
 }
 
 .secret-header {
   display: flex;
-  justify-content: space-between;
+  gap: 10px;
   align-items: center;
   margin-bottom: 8px;
 }
 
-.location {
-  font-size: 0.9em;
-  color: #909399;
-}
-
 .secret-value {
-  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .secret-value code {
-  background: #fff;
-  padding: 8px 12px;
+  background: #f5f7fa;
+  padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #e4e7ed;
-  font-family: 'Courier New', monospace;
+  font-family: monospace;
   word-break: break-all;
+  display: inline-block;
+}
+
+.no-secrets {
+  margin-top: 10px;
 }
 
 .error-result {
   margin-top: 20px;
 }
 </style>
-
-
-<!----------------Конец стилей CSS !-->
