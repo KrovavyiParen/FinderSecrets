@@ -14,7 +14,7 @@ namespace Backend.Models
         public Guid UserId { get; set; }
 
         [Column("input_type")]
-        [StringLength(10)]
+        [StringLength(50)]
         public string InputType { get; set; } = string.Empty;
 
         [Column("input_preview")]
