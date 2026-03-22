@@ -88,8 +88,8 @@ namespace Backend.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("secrets_found");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
@@ -129,8 +129,8 @@ namespace Backend.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("secrets_count");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
@@ -140,12 +140,10 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Models.User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -156,9 +154,15 @@ namespace Backend.Migrations
                         .HasColumnType("text")
                         .HasColumnName("email");
 
-                    b.Property<DateTime?>("LastLogin")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_login");
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("password");
+
+                    b.Property<string>("Roles")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("roles");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -179,9 +183,18 @@ namespace Backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Domain")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("domain");
+
                     b.Property<DateTime>("FirstFoundAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("first_found_at");
+
+                    b.Property<int?>("HttpStatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("http_status_code");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -213,6 +226,11 @@ namespace Backend.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("secret_value");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("source_url");
 
                     b.Property<string>("VariableName")
                         .IsRequired()

@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Backend.Migrations
 {
     /// <inheritdoc />
-    public partial class FixForeignKeyRelations : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -39,7 +39,7 @@ namespace Backend.Migrations
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    user_id = table.Column<int>(type: "integer", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     input_type = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
                     input_preview = table.Column<string>(type: "text", nullable: false),
                     secrets_found = table.Column<int>(type: "integer", nullable: false),
@@ -57,7 +57,7 @@ namespace Backend.Migrations
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    user_id = table.Column<int>(type: "integer", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     input_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     input_data = table.Column<string>(type: "text", nullable: false),
                     secrets_count = table.Column<int>(type: "integer", nullable: false),
@@ -74,12 +74,12 @@ namespace Backend.Migrations
                 schema: "public",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
                     username = table.Column<string>(type: "text", nullable: false),
                     email = table.Column<string>(type: "text", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    last_login = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    password = table.Column<string>(type: "text", nullable: false),
+                    roles = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -101,7 +101,10 @@ namespace Backend.Migrations
                     position = table.Column<int>(type: "integer", nullable: false),
                     first_found_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     last_found_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    is_active = table.Column<bool>(type: "boolean", nullable: false)
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    source_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    domain = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    http_status_code = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
