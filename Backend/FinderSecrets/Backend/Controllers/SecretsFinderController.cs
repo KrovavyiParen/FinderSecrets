@@ -573,7 +573,6 @@ namespace Backend.Controllers
         /// <response code="400">Некорректный URL или ошибка валидации</response>
         /// <response code="413">Превышен максимальный размер файла</response>
         /// <response code="500">Внутренняя ошибка сервера при обработке запроса</response>
-        [Authorize]
         [HttpPost("scan-url")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
