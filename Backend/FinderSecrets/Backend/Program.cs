@@ -8,7 +8,8 @@ using Backend.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
+using Backend.Auth;
+using Microsoft.AspNetCore.Authentication;
 
 
 namespace Backend
@@ -50,6 +51,30 @@ namespace Backend
 
                 // Добавляем кастомный фильтр для описаний ответов
                 c.OperationFilter<ResponseDescriptionOperationFilter>();
+                c.AddSecurityDefinition("basic", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "basic",
+                    In = ParameterLocation.Header,
+                    Description = "Basic Authentication\n\n" +
+                                "Введите email и пароль в формате: email:password\n" +
+                                "Пример: test@example.com:MyPassword123"
+                });
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "basic"
+                            }
+                        },
+                        new List<string>()
+                    }
+                });
             });
 
             builder.Services.AddCors(options =>
@@ -78,11 +103,15 @@ namespace Backend
                     Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
                 };
             });
-
-
+            builder.Services.AddAuthentication("BasicAuthentication")
+            .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
+                "BasicAuthentication", 
+                null
+            );
+            builder.Services.AddAuthentication();   
             builder.Services.AddHttpClient();
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
-
+            
 
             var app = builder.Build();
 
