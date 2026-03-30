@@ -92,5 +92,17 @@ namespace Backend.Auth
 
             return AuthenticateResult.Success(ticket);
         }
+        protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+        {
+            Response.Headers["WWW-Authenticate"] = "Basic realm=\"FinderSecrets API\"";
+            Response.StatusCode = 401;
+            await Response.WriteAsync("Unauthorized. Please provide Basic Authentication credentials.");
+        }
+
+        protected override async Task HandleForbiddenAsync(AuthenticationProperties properties)
+        {
+            Response.StatusCode = 403;
+            await Response.WriteAsync("Forbidden. You don't have permission to access this resource.");
+        }
     }
 }

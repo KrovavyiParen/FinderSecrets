@@ -88,8 +88,12 @@ namespace Backend
                 });
             });
 
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = "BasicAuthentication";
+                options.DefaultChallengeScheme = "BasicAuthentication";
+            })
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -100,17 +104,17 @@ namespace Backend
                     ValidIssuer = builder.Configuration["Jwt:Issuer"],
                     ValidAudience = builder.Configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key not configured")))
                 };
             });
-            builder.Services.AddAuthentication("BasicAuthentication")
+            //builder.Services.AddAuthentication("BasicAuthentication")
             .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
                 "BasicAuthentication", 
                 null
             );
             builder.Services.AddAuthentication();   
             builder.Services.AddHttpClient();
-            builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
+            //builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
             
 
             var app = builder.Build();
@@ -124,18 +128,18 @@ namespace Backend
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinderSecrets API v1");
                 });
             }
+            app.UseHttpsRedirection();
+            app.UseCors("FrontendPolicy");
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
 
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseHttpsRedirection();
-            app.UseCors("FrontendPolicy");
-            app.UseAuthorization();
-
-            app.MapControllers();
-
-            // Минимальные API endpoints - ТОЛЬКО БАЗОВЫЕ НАСТРОЙКИ
+            app.MapControllers().RequireAuthorization();
             app.MapGet("/", () => "FinderSecrets API is running!")
+               .RequireAuthorization()
                .WithName("Root")
                .WithTags("Health")
                .WithSummary("Проверка доступности API")
@@ -143,6 +147,7 @@ namespace Backend
                .Produces<string>(200, "text/plain");
 
             app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" })
+               .AllowAnonymous() 
                .WithName("TestAPI")
                .WithTags("Health")
                .WithSummary("Тестовый endpoint")
@@ -150,6 +155,7 @@ namespace Backend
                .Produces<object>(200, "application/json");
 
             app.MapGet("/api/health", () => "Healthy")
+               .AllowAnonymous()  
                .WithName("HealthCheck")
                .WithTags("Health")
                .WithSummary("Проверка здоровья системы")
@@ -162,12 +168,10 @@ namespace Backend
         }
     }
 
-    // Кастомный Operation Filter для добавления описаний к responses
     public class ResponseDescriptionOperationFilter : IOperationFilter
     {
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
-            // Описания для различных endpoints
             if (operation.Responses.ContainsKey("200"))
             {
                 var methodAttributes = context.MethodInfo.GetCustomAttributes(true);
@@ -184,7 +188,6 @@ namespace Backend
                     _ => "Успешный запрос"
                 };
 
-                // Альтернативный способ по summary
                 if (operation.Summary != null)
                 {
                     operation.Responses["200"].Description = operation.Summary.ToLower() switch
