@@ -22,6 +22,7 @@ namespace Backend.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
+    [Authorize]
     public class SecretsFinderController : ControllerBase
     {
         private readonly ISecretsFinder _secretsFinder;
@@ -38,7 +39,6 @@ namespace Backend.Controllers
         }
         private async Task<Guid> GetCurrentUserIdAsync()
         {
-            // Получаем email/username из claims
             var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
                            ?? User.FindFirst("email")?.Value;
 
@@ -61,7 +61,7 @@ namespace Backend.Controllers
             return user.Id;
         }
 
-        [Authorize]
+        //[Authorize]
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
@@ -682,6 +682,7 @@ namespace Backend.Controllers
         /// <response code="422">Ошибка валидации входных данных</response>
         /// <response code="500">Внутренняя ошибка сервера при создании пользователя</response>
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] DTO.RegisterRequest request)
         {
             using var scope = HttpContext.RequestServices.CreateScope();

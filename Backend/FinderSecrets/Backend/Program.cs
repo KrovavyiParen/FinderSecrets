@@ -20,10 +20,9 @@ namespace Backend
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            // Добавляем DbContext
+
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -106,13 +105,13 @@ namespace Backend
                     IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key not configured")))
                 };
-            });
-            //builder.Services.AddAuthentication("BasicAuthentication")
+            })
             .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
                 "BasicAuthentication", 
                 null
             );
-            builder.Services.AddAuthentication();   
+            
+            builder.Services.AddAuthorization();   
             builder.Services.AddHttpClient();
             //builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
             
@@ -129,38 +128,45 @@ namespace Backend
                 });
             }
             app.UseHttpsRedirection();
-            app.UseCors("FrontendPolicy");
-
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseCors("FrontendPolicy");           
 
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapControllers().RequireAuthorization();
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
+            app.MapControllers();
+            
             app.MapGet("/", () => "FinderSecrets API is running!")
-               .RequireAuthorization()
-               .WithName("Root")
-               .WithTags("Health")
-               .WithSummary("Проверка доступности API")
-               .WithDescription("Возвращает статус работы основного API")
-               .Produces<string>(200, "text/plain");
-
-            app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" })
-               .AllowAnonymous() 
-               .WithName("TestAPI")
-               .WithTags("Health")
-               .WithSummary("Тестовый endpoint")
-               .WithDescription("Проверяет работоспособность API и возвращает тестовые данные в формате JSON")
-               .Produces<object>(200, "application/json");
-
+               .RequireAuthorization();
+            
             app.MapGet("/api/health", () => "Healthy")
-               .AllowAnonymous()  
-               .WithName("HealthCheck")
-               .WithTags("Health")
-               .WithSummary("Проверка здоровья системы")
-               .WithDescription("Возвращает статус здоровья системы в текстовом формате")
-               .Produces<string>(200, "text/plain");
+               .AllowAnonymous();
+            // app.MapControllers().RequireAuthorization();
+            // app.MapGet("/", () => "FinderSecrets API is running!")
+            //    .RequireAuthorization()
+            //    .WithName("Root")
+            //    .WithTags("Health")
+            //    .WithSummary("Проверка доступности API")
+            //    .WithDescription("Возвращает статус работы основного API")
+            //    .Produces<string>(200, "text/plain");
+
+            // app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" })
+            //    .AllowAnonymous() 
+            //    .WithName("TestAPI")
+            //    .WithTags("Health")
+            //    .WithSummary("Тестовый endpoint")
+            //    .WithDescription("Проверяет работоспособность API и возвращает тестовые данные в формате JSON")
+            //    .Produces<object>(200, "application/json");
+
+            // app.MapGet("/api/health", () => "Healthy")
+            //    .AllowAnonymous()  
+            //    .WithName("HealthCheck")
+            //    .WithTags("Health")
+            //    .WithSummary("Проверка здоровья системы")
+            //    .WithDescription("Возвращает статус здоровья системы в текстовом формате")
+            //    .Produces<string>(200, "text/plain");
 
 
 
