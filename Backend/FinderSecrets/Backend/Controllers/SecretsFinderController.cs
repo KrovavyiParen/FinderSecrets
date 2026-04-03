@@ -682,7 +682,7 @@ namespace Backend.Controllers
         /// <response code="422">Ошибка валидации входных данных</response>
         /// <response code="500">Внутренняя ошибка сервера при создании пользователя</response>
         [HttpPost("register")]
-        [AllowAnonymous]
+        
         public async Task<IActionResult> Register([FromBody] DTO.RegisterRequest request)
         {
             using var scope = HttpContext.RequestServices.CreateScope();
@@ -989,7 +989,9 @@ namespace Backend.Controllers
         /// </summary>
         /// <returns>Статус здоровья сервиса</returns>
         /// <response code="200">Сервис работает корректно</response>
+        
         [HttpGet("health")]
+        [Authorize]
         [ProducesResponseType(typeof(HealthCheckDto), StatusCodes.Status200OK)]
         public async Task<ActionResult<HealthCheckDto>> HealthCheck()
         {

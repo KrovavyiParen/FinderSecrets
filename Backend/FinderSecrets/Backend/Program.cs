@@ -83,7 +83,8 @@ namespace Backend
                     policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowCredentials();
+                          .AllowCredentials()
+                          .WithExposedHeaders("WWW-Authenticate", "Content-Type");
                 });
             });
 
@@ -129,10 +130,10 @@ namespace Backend
             }
             app.UseHttpsRedirection();
             app.UseCors("FrontendPolicy");           
-
+            
             app.UseAuthentication();
             app.UseAuthorization();
-
+            
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
@@ -141,8 +142,8 @@ namespace Backend
             app.MapGet("/", () => "FinderSecrets API is running!")
                .RequireAuthorization();
             
-            app.MapGet("/api/health", () => "Healthy")
-               .AllowAnonymous();
+            //app.MapGet("/api/health", () => "Healthy")
+              // .AllowAnonymous();
             // app.MapControllers().RequireAuthorization();
             // app.MapGet("/", () => "FinderSecrets API is running!")
             //    .RequireAuthorization()

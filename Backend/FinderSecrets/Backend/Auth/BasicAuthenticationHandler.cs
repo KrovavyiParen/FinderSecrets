@@ -91,7 +91,8 @@ namespace Backend.Auth
         {
             Response.Headers["WWW-Authenticate"] = "Basic realm=\"FinderSecrets API\"";
             Response.StatusCode = 401;
-            await Response.WriteAsync("Unauthorized. Please provide Basic Authentication credentials.");
+            await Response.WriteAsync("Unauthorized.");
+            _logger.LogWarning("HandleChallengeAsync called");
         }
 
         protected override async Task HandleForbiddenAsync(AuthenticationProperties properties)

@@ -1,5 +1,18 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import { onMounted } from 'vue'
+import TheHeader from "./components/TheHeader.vue"
+import TheFooter from "./components/TheFooter.vue"
+
+onMounted(() => {
+  fetch('/api/SecretsFinder/health')
+    .then(response => {
+      if (response.status === 401) {
+        console.log('Требуется авторизация');
+      }
+    })
+    .catch(err => console.error(err));
+})
 </script>
 
 <template>
@@ -9,18 +22,6 @@ import { RouterLink, RouterView } from 'vue-router'
     <TheFooter/>
   </el-main>
 </template>
-
-<script>
-import TheHeader from "./components/TheHeader.vue";
-import TheFooter from "./components/TheFooter.vue";
-
-export default {
-  components: {
-    TheHeader,
-    TheFooter
-  }
-}
-</script>
 
 <style scoped>
 .elmain {
