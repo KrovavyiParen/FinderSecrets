@@ -1,22 +1,39 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { RouterView } from 'vue-router'
 import TheHeader from "./components/TheHeader.vue"
 import TheFooter from "./components/TheFooter.vue"
 
-onMounted(() => {
-  fetch('/api/SecretsFinder/health')
-    .then(response => {
-      if (response.status === 401) {
-        console.log('Требуется авторизация');
+const isAuthorized = ref(false)
+const isLoading = ref(true)
+
+onMounted(async () => {
+  try {
+    const response = await fetch('/api/SecretsFinder/health')
+    
+    if (response.status === 401) {
+      const retryResponse = await fetch('/api/SecretsFinder/health')
+      
+      if (retryResponse.ok) {
+        isAuthorized.value = true
       }
-    })
-    .catch(err => console.error(err));
+    } else if (response.ok) {
+      isAuthorized.value = true
+    }
+  } catch (err) {
+    console.error('Ошибка:', err)
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
 <template>
-  <el-main class="elmain">
+  <div v-if="isLoading">
+    Загрузка...
+  </div>
+  
+  <el-main v-else-if="isAuthorized" class="elmain">
     <TheHeader/>
     <RouterView />
     <TheFooter/>

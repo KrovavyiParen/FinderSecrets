@@ -22,7 +22,6 @@ namespace Backend.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
-    [Authorize]
     public class SecretsFinderController : ControllerBase
     {
         private readonly ISecretsFinder _secretsFinder;
@@ -61,7 +60,7 @@ namespace Backend.Controllers
             return user.Id;
         }
 
-        //[Authorize]
+        [Authorize]
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
@@ -69,7 +68,10 @@ namespace Backend.Controllers
     
             using var scope = HttpContext.RequestServices.CreateScope();
             var _context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User ID not found");
+            }
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == Guid.Parse(userId));
         
@@ -101,6 +103,8 @@ namespace Backend.Controllers
         /// <response code="200">Успешное сканирование</response>
         /// <response code="400">Неверный запрос</response>
         /// <response code="500">Внутренняя ошибка сервера</response>
+        /// 
+        [Authorize]
         [HttpPost("scan-text")]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -214,6 +218,7 @@ namespace Backend.Controllers
         /// <response code="200">Успешное сканирование</response>
         /// <response code="400">Неверный запрос</response>
         /// <response code="500">Внутренняя ошибка сервера</response>
+        [Authorize]
         [HttpPost("start-scan")]
         [ProducesResponseType(typeof(DomainScanResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status400BadRequest)]
@@ -228,7 +233,7 @@ namespace Backend.Controllers
             var domains = new List<string>();
             var scanResults = new List<DomainScanResult>();
             try
-            {
+            {   
                 if (string.IsNullOrWhiteSpace(request.Text))
                 {
                     return BadRequest(new ScanResultDto
@@ -426,6 +431,7 @@ namespace Backend.Controllers
         /// <response code="400">Неверный запрос</response>
         /// <response code="413">Превышен максимальный размер файла</response>
         /// <response code="500">Внутренняя ошибка сервера</response>
+        [Authorize]
         [HttpPost("scan-file")]
         [RequestSizeLimit(5_242_880)]
         [ProducesResponseType(typeof(ScanResultDto), StatusCodes.Status200OK)]
@@ -681,6 +687,7 @@ namespace Backend.Controllers
         /// <response code="400">Некорректные данные или пользователь уже существует</response>
         /// <response code="422">Ошибка валидации входных данных</response>
         /// <response code="500">Внутренняя ошибка сервера при создании пользователя</response>
+        [Authorize]
         [HttpPost("register")]
         
         public async Task<IActionResult> Register([FromBody] DTO.RegisterRequest request)
@@ -738,6 +745,7 @@ namespace Backend.Controllers
         /// <response code="400">Некорректный формат запроса</response>
         /// <response code="401">Неверные учетные данные</response>
         /// <response code="500">Внутренняя ошибка сервера</response>
+        [Authorize]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
@@ -777,6 +785,10 @@ namespace Backend.Controllers
         private string GenerateJwtToken(User user)
         {
             var jwtKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                throw new InvalidOperationException("JWT Key is not configured");
+            }
             var jwtIssuer = _configuration["Jwt:Issuer"];
             var jwtAudience = _configuration["Jwt:Audience"];
 
@@ -818,6 +830,7 @@ namespace Backend.Controllers
         /// </remarks>
         /// <returns>Список поддерживаемых типов секретов с описанием и примерами</returns>
         /// <response code="200">Возвращает информацию о поддерживаемых типах секретов</response>
+        [Authorize]
         [HttpGet("supported-types")]
         [ProducesResponseType(typeof(SupportedTypesResponseDto), StatusCodes.Status200OK)]
         public ActionResult<SupportedTypesResponseDto> GetSupportedSecretTypes()
@@ -848,6 +861,7 @@ namespace Backend.Controllers
         /// GET /api/SecretsFinder/tokens-history?statistics=true
         /// GET /api/SecretsFinder/tokens-history?secretType=API_KEY&amp;page=1&amp;pageSize=20
         /// </remarks>
+        [Authorize]
         [HttpGet("tokens-history")]
         [ProducesResponseType(typeof(TokenHistoryResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -907,7 +921,6 @@ namespace Backend.Controllers
             }
         }
 
-        // Обновленные вспомогательные методы БЕЗ tokensQuery
         private async Task<ActionResult<TokenHistoryResponseDto>> GetStatisticsResponse(
             IQueryable<FoundSecret> secretsQuery)
         {
@@ -989,7 +1002,6 @@ namespace Backend.Controllers
         /// </summary>
         /// <returns>Статус здоровья сервиса</returns>
         /// <response code="200">Сервис работает корректно</response>
-        
         [HttpGet("health")]
         [Authorize]
         [ProducesResponseType(typeof(HealthCheckDto), StatusCodes.Status200OK)]

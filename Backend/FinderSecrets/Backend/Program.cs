@@ -80,7 +80,7 @@ namespace Backend
             {
                 options.AddPolicy("FrontendPolicy", policy =>
                 {
-                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000", "http://localhost:5173", "https://localhost:5173")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()
@@ -114,12 +114,10 @@ namespace Backend
             
             builder.Services.AddAuthorization();   
             builder.Services.AddHttpClient();
-            //builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
             
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -130,13 +128,13 @@ namespace Backend
             }
             app.UseHttpsRedirection();
             app.UseCors("FrontendPolicy");           
-            
+
             app.UseAuthentication();
             app.UseAuthorization();
             
             app.UseDefaultFiles();
             app.UseStaticFiles();
-
+            
             app.MapControllers();
             
             app.MapGet("/", () => "FinderSecrets API is running!")
