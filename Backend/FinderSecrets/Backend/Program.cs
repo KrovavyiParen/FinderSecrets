@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Backend.Auth;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace Backend
@@ -26,11 +27,9 @@ namespace Backend
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // Регистрируем сервисы
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
             builder.Services.AddScoped<DatabaseService>();
 
-            // Настройка Swagger с XML комментариями
             builder.Services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -40,7 +39,6 @@ namespace Backend
                     Description = "API для поиска секретов и проверки состояния системы"
                 });
 
-                // Включение XML-комментариев для контроллеров
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 if (File.Exists(xmlPath))
@@ -48,9 +46,8 @@ namespace Backend
                     c.IncludeXmlComments(xmlPath);
                 }
 
-                // Добавляем кастомный фильтр для описаний ответов
                 c.OperationFilter<ResponseDescriptionOperationFilter>();
-                c.AddSecurityDefinition("basic", new OpenApiSecurityScheme
+                c.AddSecurityDefinition("Basic", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
                     Type = SecuritySchemeType.Http,
@@ -60,6 +57,15 @@ namespace Backend
                                 "Введите email и пароль в формате: email:password\n" +
                                 "Пример: test@example.com:MyPassword123"
                 });
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "JWT Authorization header using the Bearer scheme."
+                });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -68,7 +74,7 @@ namespace Backend
                             Reference = new OpenApiReference
                             {
                                 Type = ReferenceType.SecurityScheme,
-                                Id = "basic"
+                                Id = "Basic"
                             }
                         },
                         new List<string>()
@@ -88,12 +94,14 @@ namespace Backend
                 });
             });
 
-            builder.Services.AddAuthentication(options =>
+           builder.Services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = "BasicAuthentication";
-                options.DefaultChallengeScheme = "BasicAuthentication";
+                options.DefaultAuthenticateScheme = "Basic";
+                options.DefaultChallengeScheme = "Basic";
+                options.DefaultScheme = "Basic";;
             })
-            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Basic", null)
+            .AddJwtBearer("Bearer", options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -105,19 +113,39 @@ namespace Backend
                     ValidAudience = builder.Configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key not configured")))
+              };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Cookies["jwt_token"];
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            context.Token = token;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
-            })
-            .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
-                "BasicAuthentication", 
-                null
-            );
+            });
+            builder.Services.AddAuthorization(options =>
+            {
+                options.DefaultPolicy = new AuthorizationPolicyBuilder("Basic", "Bearer")
+                    .RequireAuthenticatedUser()
+                    .Build();
+                options.AddPolicy("BasicOnly", new AuthorizationPolicyBuilder("Basic")
+                    .RequireAuthenticatedUser()
+                    .Build());
+                options.AddPolicy("JWTOnly", new AuthorizationPolicyBuilder("Bearer")
+                    .RequireAuthenticatedUser()
+                    .Build());
+
+            });     
             
-            builder.Services.AddAuthorization();   
             builder.Services.AddHttpClient();
             
-
             var app = builder.Build();
-
+            
+            app.UseCors("FrontendPolicy"); 
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -126,49 +154,41 @@ namespace Backend
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinderSecrets API v1");
                 });
             }
-            app.UseHttpsRedirection();
-            app.UseCors("FrontendPolicy");           
+            app.UseHttpsRedirection();          
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
 
             app.UseAuthentication();
             app.UseAuthorization();
-            
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
-            
+
+            // app.Use(async (context, next) =>
+            // {
+            //     var path = context.Request.Path.Value ?? "";
+            //     var isApiPath = path.StartsWith("/api") || 
+            //                     path.StartsWith("/swagger") || 
+            //                     path.StartsWith("/swagger.json");
+            //     var isStaticFile = path.Contains(".") && 
+            //                     (path.EndsWith(".css") || path.EndsWith(".js") || 
+            //                         path.EndsWith(".png") || path.EndsWith(".jpg") ||
+            //                         path.EndsWith(".html"));
+                
+            //     if (!isApiPath && !isStaticFile)
+            //     {
+            //         if (!context.User.Identity?.IsAuthenticated ?? true)
+            //         {
+            //             context.Response.Headers["WWW-Authenticate"] = "Basic realm=\"FinderSecrets\"";
+            //             context.Response.StatusCode = 401;
+            //             return;
+            //         }
+            //     }
+                
+            //     await next();
+            // });
+
             app.MapControllers();
-            
-            app.MapGet("/", () => "FinderSecrets API is running!")
-               .RequireAuthorization();
-            
-            //app.MapGet("/api/health", () => "Healthy")
-              // .AllowAnonymous();
-            // app.MapControllers().RequireAuthorization();
-            // app.MapGet("/", () => "FinderSecrets API is running!")
-            //    .RequireAuthorization()
-            //    .WithName("Root")
-            //    .WithTags("Health")
-            //    .WithSummary("Проверка доступности API")
-            //    .WithDescription("Возвращает статус работы основного API")
-            //    .Produces<string>(200, "text/plain");
-
-            // app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" })
-            //    .AllowAnonymous() 
-            //    .WithName("TestAPI")
-            //    .WithTags("Health")
-            //    .WithSummary("Тестовый endpoint")
-            //    .WithDescription("Проверяет работоспособность API и возвращает тестовые данные в формате JSON")
-            //    .Produces<object>(200, "application/json");
-
-            // app.MapGet("/api/health", () => "Healthy")
-            //    .AllowAnonymous()  
-            //    .WithName("HealthCheck")
-            //    .WithTags("Health")
-            //    .WithSummary("Проверка здоровья системы")
-            //    .WithDescription("Возвращает статус здоровья системы в текстовом формате")
-            //    .Produces<string>(200, "text/plain");
-
-
-
+            app.MapGet("/", () => "FinderSecrets API is running!").RequireAuthorization("BasicOnly");
+            app.MapFallbackToFile("index.html").RequireAuthorization("BasicOnly");
             app.Run();
         }
     }

@@ -14,20 +14,24 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:5200',
         changeOrigin: true,
-        configure: (proxy) => {
+        headers: {
+          'Accept': 'application/json',
+        },
+        followRedirects: true,
+        configure: (proxy, options) => {
           proxy.on('proxyRes', (proxyRes, req, res) => {
-            if (proxyRes.statusCode === 401) {
-              res.statusCode = 401
-              const authHeader = proxyRes.headers['www-authenticate']
-              if (authHeader) {
-                res.setHeader('WWW-Authenticate', authHeader)
-              }
+            if (proxyRes.headers['www-authenticate']) {
+              res.setHeader('WWW-Authenticate', proxyRes.headers['www-authenticate']);
             }
-          })
+            if (proxyRes.statusCode === 401) {
+              res.statusCode = 401;
+            }
+          });
         }
       }
     }
