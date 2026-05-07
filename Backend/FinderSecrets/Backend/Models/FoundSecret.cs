@@ -13,7 +13,7 @@ public class FoundSecret
     public int RequestId { get; set; }
 
     [ForeignKey("RequestId")]
-    public ScanRequestEntity ScanRequest { get; set; }
+    public ScanRequestEntity ScanRequest { get; set; } = null!;
 
     [Column("secret_type")]
     [StringLength(50)]

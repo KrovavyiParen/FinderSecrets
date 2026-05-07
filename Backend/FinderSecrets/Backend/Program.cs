@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Backend.Auth;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace Backend
@@ -20,18 +21,15 @@ namespace Backend
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            // Добавляем DbContext
+
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // Регистрируем сервисы
             builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
             builder.Services.AddScoped<DatabaseService>();
 
-            // Настройка Swagger с XML комментариями
             builder.Services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -41,7 +39,6 @@ namespace Backend
                     Description = "API для поиска секретов и проверки состояния системы"
                 });
 
-                // Включение XML-комментариев для контроллеров
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 if (File.Exists(xmlPath))
@@ -49,9 +46,8 @@ namespace Backend
                     c.IncludeXmlComments(xmlPath);
                 }
 
-                // Добавляем кастомный фильтр для описаний ответов
                 c.OperationFilter<ResponseDescriptionOperationFilter>();
-                c.AddSecurityDefinition("basic", new OpenApiSecurityScheme
+                c.AddSecurityDefinition("Basic", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
                     Type = SecuritySchemeType.Http,
@@ -61,6 +57,15 @@ namespace Backend
                                 "Введите email и пароль в формате: email:password\n" +
                                 "Пример: test@example.com:MyPassword123"
                 });
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "JWT Authorization header using the Bearer scheme."
+                });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -69,7 +74,7 @@ namespace Backend
                             Reference = new OpenApiReference
                             {
                                 Type = ReferenceType.SecurityScheme,
-                                Id = "basic"
+                                Id = "Basic"
                             }
                         },
                         new List<string>()
@@ -81,15 +86,25 @@ namespace Backend
             {
                 options.AddPolicy("FrontendPolicy", policy =>
                 {
-                    policy.WithOrigins("http://195.209.218.52:3000", "http://195.209.218.52:3000")
+
+                    policy.WithOrigins("http://195.209.218.52:3000", "http://195.209.218.52:3000", "http://localhost:3000", "https://localhost:3000", "http://localhost:5173", "https://localhost:5173")
+
+
                           .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowCredentials();
+                          .AllowCredentials()
+                          .WithExposedHeaders("WWW-Authenticate", "Content-Type");
                 });
             });
 
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
+           builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = "Basic";
+                options.DefaultChallengeScheme = "Basic";
+                options.DefaultScheme = "Basic";;
+            })
+            .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Basic", null)
+            .AddJwtBearer("Bearer", options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -100,22 +115,40 @@ namespace Backend
                     ValidIssuer = builder.Configuration["Jwt:Issuer"],
                     ValidAudience = builder.Configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key not configured")))
+              };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Cookies["jwt_token"];
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            context.Token = token;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
-            builder.Services.AddAuthentication("BasicAuthentication")
-            .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
-                "BasicAuthentication", 
-                null
-            );
-            builder.Services.AddAuthentication();   
-            builder.Services.AddHttpClient();
-            builder.Services.AddScoped<ISecretsFinder, SecretsFinder>();
+            builder.Services.AddAuthorization(options =>
+            {
+                options.DefaultPolicy = new AuthorizationPolicyBuilder("Basic", "Bearer")
+                    .RequireAuthenticatedUser()
+                    .Build();
+                options.AddPolicy("BasicOnly", new AuthorizationPolicyBuilder("Basic")
+                    .RequireAuthenticatedUser()
+                    .Build());
+                options.AddPolicy("JWTOnly", new AuthorizationPolicyBuilder("Bearer")
+                    .RequireAuthenticatedUser()
+                    .Build());
+
+            });     
             
-
+            builder.Services.AddHttpClient();
+            
             var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
+            
+            app.UseCors("FrontendPolicy"); 
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -124,50 +157,49 @@ namespace Backend
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinderSecrets API v1");
                 });
             }
+            app.UseHttpsRedirection();          
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
 
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseHttpsRedirection();
-            app.UseCors("FrontendPolicy");
-            app.UseAuthorization();
+            // app.Use(async (context, next) =>
+            // {
+            //     var path = context.Request.Path.Value ?? "";
+            //     var isApiPath = path.StartsWith("/api") || 
+            //                     path.StartsWith("/swagger") || 
+            //                     path.StartsWith("/swagger.json");
+            //     var isStaticFile = path.Contains(".") && 
+            //                     (path.EndsWith(".css") || path.EndsWith(".js") || 
+            //                         path.EndsWith(".png") || path.EndsWith(".jpg") ||
+            //                         path.EndsWith(".html"));
+                
+            //     if (!isApiPath && !isStaticFile)
+            //     {
+            //         if (!context.User.Identity?.IsAuthenticated ?? true)
+            //         {
+            //             context.Response.Headers["WWW-Authenticate"] = "Basic realm=\"FinderSecrets\"";
+            //             context.Response.StatusCode = 401;
+            //             return;
+            //         }
+            //     }
+                
+            //     await next();
+            // });
 
             app.MapControllers();
-
-            // Минимальные API endpoints - ТОЛЬКО БАЗОВЫЕ НАСТРОЙКИ
-            app.MapGet("/", () => "FinderSecrets API is running!")
-               .WithName("Root")
-               .WithTags("Health")
-               .WithSummary("Проверка доступности API")
-               .WithDescription("Возвращает статус работы основного API")
-               .Produces<string>(200, "text/plain");
-
-            app.MapGet("/api/test", () => new { message = "API is working!", status = "OK" })
-               .WithName("TestAPI")
-               .WithTags("Health")
-               .WithSummary("Тестовый endpoint")
-               .WithDescription("Проверяет работоспособность API и возвращает тестовые данные в формате JSON")
-               .Produces<object>(200, "application/json");
-
-            app.MapGet("/api/health", () => "Healthy")
-               .WithName("HealthCheck")
-               .WithTags("Health")
-               .WithSummary("Проверка здоровья системы")
-               .WithDescription("Возвращает статус здоровья системы в текстовом формате")
-               .Produces<string>(200, "text/plain");
-
-
-
+            app.MapGet("/", () => "FinderSecrets API is running!").RequireAuthorization("BasicOnly");
+            app.MapFallbackToFile("index.html").RequireAuthorization("BasicOnly");
             app.Run();
         }
     }
 
-    // Кастомный Operation Filter для добавления описаний к responses
     public class ResponseDescriptionOperationFilter : IOperationFilter
     {
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
-            // Описания для различных endpoints
             if (operation.Responses.ContainsKey("200"))
             {
                 var methodAttributes = context.MethodInfo.GetCustomAttributes(true);
@@ -184,7 +216,6 @@ namespace Backend
                     _ => "Успешный запрос"
                 };
 
-                // Альтернативный способ по summary
                 if (operation.Summary != null)
                 {
                     operation.Responses["200"].Description = operation.Summary.ToLower() switch
